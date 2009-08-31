@@ -1,0 +1,37 @@
+			BOXFS
+	A FUSE-based filesystem to access 
+	files on a box.net account.
+
+This software is licensed under the GPLv2 Licence and
+comes with NO WARRANTY. Use at your own risk.
+
+Compiling
+=========
+
+Unpack the source tarball and run make in the resulting dir.
+You need FUSE and libxml2 (most distros come with them installed).
+You can get libxml2 from xmlsoft.org.
+
+
+Usage
+=====
+
+Usage: boxfs /path/to/mountpoint.
+You will be prompted for login and password.
+For help with command line arguments type boxfs --help
+
+When you've done using your files, unmount your filsystem
+with fusermount -u mountpoint
+
+
+
+Known problems/limitations
+==========================
+
+Issues when creating empty files with touch
+FIXED - Support for the rename operation is still missing.
+FIXED - Fileystem statistic are incorrect (because of a bug in box's developer api).
+
+
+Questions? Write me at pinguino(@)thesaguaros.com
+
