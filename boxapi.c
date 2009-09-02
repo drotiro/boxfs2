@@ -599,7 +599,6 @@ int get_ticket(struct box_options_t* options) {
   char postpar[4096]="";
   char gkurl[512];
   char* value;
-  char *login, *password;
   
   buf = http_fetch(API_GET_TICKET);
   status = node_value(buf,"status");
@@ -637,8 +636,6 @@ int get_ticket(struct box_options_t* options) {
 
   sprintf(gkurl, API_LOGIN_URL "%s",ticket);
   http_post(gkurl,postpar);
-  free(login);
-  free(password);
   
   return res;
 }
