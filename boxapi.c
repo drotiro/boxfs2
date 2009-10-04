@@ -56,8 +56,8 @@
 #define API_RMDIR_OK API_UNLINK_OK 
 #define API_LOGOUT API_REST_BASE "logout" API_KEY "&auth_token="
 
-#define LOCKDIR(dir) syslog(LOG_INFO, "LOCKING DIR %s", dir->id); pthread_mutex_lock(dir->dirmux);
-#define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); syslog(LOG_INFO, "UNLOCKING DIR %s", dir->id);
+#define LOCKDIR(dir) /*syslog(LOG_INFO, "LOCKING DIR %s", dir->id);*/ pthread_mutex_lock(dir->dirmux);
+#define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); /*syslog(LOG_INFO, "UNLOCKING DIR %s", dir->id);*/
 
 /* globals, written during initialization */
 char *ticket = NULL, *auth_token = NULL;
@@ -86,6 +86,7 @@ typedef struct box_options_t
 {
     char* user;
     char* password;
+    char* mountpoint;
 } box_options;
 
 
@@ -108,6 +109,7 @@ int parse_options (int* argc, char*** argv, struct box_options_t* options)
 
     options->user = NULL;
     options->password = NULL;
+    options->mountpoint = NULL;
 
     while ((c = getopt (*argc, *argv, "Hhu:p:f:")) != -1) {
         switch (c) {
@@ -134,6 +136,12 @@ int parse_options (int* argc, char*** argv, struct box_options_t* options)
         }
     }
 
+    if (pass_file) {
+        if (read_pass_file (pass_file, options))
+            show_usage();
+            return 1;
+    }
+
     /* check for mountpoint presence */
     if (optind == *argc) {
         BOX_ERR("Error: mountpoint not specified\n");
@@ -142,26 +150,6 @@ int parse_options (int* argc, char*** argv, struct box_options_t* options)
 
     *argc -= optind - 1;
     *argv += optind - 1;
-
-    if (pass_file) {
-        if (read_pass_file (pass_file, options)) 
-            return 1;
-    }
-
-#if 0
-    /* debug output */
-    printf ("Result (%d):\n", optind);
-    printf ("User: %s\n", options->user ? options->user : "NULL");
-    printf ("Pass: %s\n", options->password ? options->password : "NULL");
-
-    printf ("Rest of options (%d)\n", *argc);
-
-    {
-        int i;
-        for (i = 0; i < *argc; i++)
-            printf ("Opt %d = %s\n", i, (*argv)[i]);
-    }
-#endif
 
     return 0;
 }
@@ -200,74 +188,38 @@ void show_fuse_usage ()
 }
 
 
-/* first argument points at the beginning of key=value pair.
-   Routine analyses this pair, duplicates value to result pointer
-   and returns position of next character after the newline */
-int parse_cred_val (const char* buf, char** result)
-{
-    const char *p = buf, *pp;
-    int res, pos;
-    
-    p = strchr (p, '=');
-    if (!p)
-        return 0;
-
-    pp = strchr (p, '\n');
-
-    if (!pp) {
-        *result = strdup (p+1);
-        return strlen (buf)-1;
-    }
-
-    *result = (char*)malloc (pp-p);
-    memcpy (*result, p+1, pp-p-1);
-    (*result)[pp-p-1] = '\0';
-
-    return pp-buf+1;
-}
-
-
 int read_pass_file (const char* file_name, struct box_options_t* options)
 {
-    FILE* f = fopen (file_name, "r");
-    char buf[1024];
-    int res = 0, pos;
-    static const char* s1 = "username=";
-    static const char* s2 = "password=";
+    FILE * f = fopen(file_name, "r");
+    int res = 0;
+    char *optkey=NULL, *optval = NULL, line[1024]="";
+    const char KEY_USER [] = "username";
+    const char KEY_PASS [] = "password";
+    const char KEY_MOUNT [] = "mountpoint";
+    const char SEP [] = "= \t\n";
 
-    if (!f) {
-        printf ("Cannot open file with login/password\n");
-        return 1;
-    }
-
-    if (fread (buf, 1, sizeof (buf), f) == sizeof (buf)) {
-        printf ("Credentals file too large\n");
-        return 1;
-    }
-
-    if (strncmp (s1, buf, strlen (s1))) {
-        if (strncmp (s2, buf, strlen (s2))) {
+    do {
+        if (fgets(line, sizeof(line), f)==NULL) break;
+        if(line[0]=='#') continue; //skip comments
+        optkey = strtok(line,SEP);
+        optval = strtok(NULL,SEP);
+        if(optkey == NULL || optval == NULL) {
+            BOX_ERR("Invalid line in credentials file\n");
             res = 1;
-            printf ("Credintals file parse error, please check it.\n");
-        } else {
-            pos = parse_cred_val (buf, &(options->password));
-
-            if (!strncmp (s1, buf+pos, strlen (s1)))
-                parse_cred_val (buf+pos, &(options->user));
+            break;
         }
-    } else {
-        pos = parse_cred_val (buf, &(options->user));
-        
-        if (!strncmp (s2, buf+pos, strlen (s2)))
-            parse_cred_val (buf+pos, &(options->password));
-    }
-
-    fclose (f);
-
+        if (!strcmp(optkey,KEY_USER)) options->user = strdup(optval);
+        else if (!strcmp(optkey,KEY_PASS)) options->password = strdup(optval);
+        else if (!strcmp(optkey,KEY_MOUNT)) options->mountpoint = strdup(optval);
+        else { 
+            fprintf(stderr,"Invalid option %s in file %s\n", optkey, file_name);
+            res = 1;
+            break;
+        }
+    } while(!feof(f));
+    fclose(f);
     return res;
-}
-
-
+};
 
 boxdir * create_dir()
 {
@@ -321,12 +273,11 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
         free(aFile->id);
       }
     }
-    /* x ora salto tags etc  */
+    /* skipping tags & sharing info */
   }
   
   aDir->id = strdup(id);
   xmlHashAddEntry(allDirs, path, aDir);
-  //fprintf(stderr,"Adding dir %s with %d subdirs\n",path,xmlListSize(aDir->folders));
 }
 
 void parse_tree()
@@ -1061,8 +1012,8 @@ int api_rename(const char * from, const char * to)
 	fid = get_fileid(from);
 	//if src & dst dir are the same we can just rename
 	if(fparent==tparent) {
-		syslog(LOG_DEBUG,"RENAME: from %s [%s] to %s [%s], fid=%s",from, fbase,
-	       to, tbase, fid);
+		//syslog(LOG_DEBUG,"RENAME: from %s [%s] to %s [%s], fid=%s",from, fbase,
+	    //   to, tbase, fid);
 		if(fid) {
 			//syslog(LOG_INFO,"samedir file rename");
 			LOCKDIR(fparent);
@@ -1110,8 +1061,8 @@ int api_rename(const char * from, const char * to)
 	}
 	//move + (rename)
 	if(strcmp(fbase,tbase)) return move_and_rename(from,to);
-	syslog(LOG_DEBUG,"MOVE: from %s [%s] to %s [%s], fid=%s",from, fbase,
-	       to, tbase, fid);
+	//syslog(LOG_DEBUG,"MOVE: from %s [%s] to %s [%s], fid=%s",from, fbase,
+	//       to, tbase, fid);
 	if(fid) {
 		//moving a file
 		LOCKDIR(fparent);
@@ -1173,7 +1124,7 @@ int move_and_rename(const char * path, const char * newpath)
 	char * to1;
 	int res;
 
-	syslog(LOG_INFO,"Starting 2-step rename");
+	//syslog(LOG_INFO,"Starting 2-step rename");
 	//step 1: local rename
 	to1 = malloc(strlen(path)+strlen(newpath)+1);
 	to1[0]=0;
