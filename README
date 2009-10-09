@@ -16,9 +16,23 @@ You can get libxml2 from xmlsoft.org.
 Usage
 =====
 
-Usage: boxfs /path/to/mountpoint.
-You will be prompted for login and password.
-For help with command line arguments type boxfs --help
+Usage: boxfs [options] [mountPoint] [FUSE Mount Options]
+
+Common options:
+  -H                show optional FUSE mount options
+  -u login          box.net login name
+  -p password       box.net password
+  -f conffile       file containing configuration options
+
+File passed in -f option can have lines such as:
+username = mrsmith
+mountpoint = /path/to/folder
+password = secret
+
+Lines beginning with '#' are treated as comments and ignored.
+
+If you don't specify username and/or password nor in the command line neither in configuration file, you will be prompted for them.
+You must provide the mountpoint, after the other options or in the configuration file.
 
 When you've done using your files, unmount your filsystem
 with fusermount -u mountpoint
@@ -28,10 +42,7 @@ with fusermount -u mountpoint
 Known problems/limitations
 ==========================
 
-Issues when creating empty files with touch
-FIXED - Support for the rename operation is still missing.
-FIXED - Fileystem statistic are incorrect (because of a bug in box's developer api).
-
+Probably too many to be listed here.
 
 Questions? Write me at pinguino(@)thesaguaros.com
 

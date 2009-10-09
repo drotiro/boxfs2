@@ -175,12 +175,12 @@ void free_options (struct box_options_t* options)
 
 void show_usage ()
 {
-    printf ("Usage: boxfs [options] mountPoint [FUSE Mount Options]\n\n");
+    printf ("Usage: boxfs [options] [mountPoint] [FUSE Mount Options]\n\n");
     printf ("Common options:\n");
     printf ("  -H                show optional FUSE mount options\n");
     printf ("  -u login          box.net login name\n");
     printf ("  -p password       box.net password\n");
-    printf ("  -f credfile       file which holds credintals for box.net\n\n");
+    printf ("  -f conffile       file containing configuration options\n\n");
     printf ("File passed in -f option can have lines such as:\n");
     printf ("username = mrsmith\n");
     printf ("mountpoint = /path/to/folder\n");
@@ -196,6 +196,15 @@ void show_fuse_usage ()
     fuse_main (argc, argv, NULL);
 }
 
+void trim_right(char * str) {
+    int len = strlen(str), i=0;
+    while((str[i]!=' ') && i < len) ++i;
+    if(i < len) str[i]=0;
+}
+
+void trim_left(char ** str) {
+    while(*str[0]==' ') (*str)++;
+}
 
 int read_pass_file (const char* file_name, struct box_options_t* options)
 {
@@ -205,7 +214,7 @@ int read_pass_file (const char* file_name, struct box_options_t* options)
     const char KEY_USER [] = "username";
     const char KEY_PASS [] = "password";
     const char KEY_MOUNT [] = "mountpoint";
-    const char SEP [] = "= \n";
+    const char SEP [] = "=\n";
 
     do {
         if (fgets(line, sizeof(line), f)==NULL) break;
@@ -217,6 +226,8 @@ int read_pass_file (const char* file_name, struct box_options_t* options)
             res = 1;
             break;
         }
+        trim_right(optkey); trim_left(&optval);
+        //fprintf(stderr, "%s=%s\n", optkey, optval);
         if (!strcmp(optkey,KEY_USER)) options->user = strdup(optval);
         else if (!strcmp(optkey,KEY_PASS)) options->password = strdup(optval);
         else if (!strcmp(optkey,KEY_MOUNT)) options->mountpoint = strdup(optval);
@@ -225,7 +236,6 @@ int read_pass_file (const char* file_name, struct box_options_t* options)
             res = 1;
             break;
         }
-        fprintf(stderr, "%s = %s\n", optkey, optval);
     } while(!feof(f));
     fclose(f);
     return res;
