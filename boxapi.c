@@ -94,7 +94,7 @@ xmlHashTablePtr allDirs = NULL;
 
 void show_usage ();
 void show_fuse_usage ();
-int  read_pass_file (const char* file_name, struct box_options_t* options);
+int  read_conf_file (const char* file_name, struct box_options_t* options);
 
 void wipeopt(char * opt) 
 {
@@ -137,7 +137,7 @@ int parse_options (int* argc, char*** argv, struct box_options_t* options)
     }
 
     if (pass_file) {
-        if (read_pass_file (pass_file, options)) {
+        if (read_conf_file (pass_file, options)) {
             show_usage();
             return 1;
         }
@@ -150,7 +150,7 @@ int parse_options (int* argc, char*** argv, struct box_options_t* options)
             (*argv)[optind] = strdup(options->mountpoint);
         } else {
             BOX_ERR("Error: mountpoint not specified\n"
-                "You should pass it in the command line or in cred file.\n");
+                "You should pass it on the command line or in the config file.\n");
             return 1;
         }
     }
@@ -196,48 +196,60 @@ void show_fuse_usage ()
     fuse_main (argc, argv, NULL);
 }
 
-void trim_right(char * str) {
-    int len = strlen(str), i=0;
-    while((str[i]!=' ') && i < len) ++i;
-    if(i < len) str[i]=0;
+void trim(char *s) {
+	if (!s) return;
+    char *p = s;
+    int l = strlen(p);
+
+    while(isspace(p[l - 1])) p[--l] = 0;
+    while(* p && isspace(* p)) ++p, --l;
+
+    memmove(s, p, l + 1);
 }
 
-void trim_left(char ** str) {
-    while(*str[0]==' ') (*str)++;
-}
-
-int read_pass_file (const char* file_name, struct box_options_t* options)
+int read_conf_file (const char* file_name, box_options* options)
 {
-    FILE * f = fopen(file_name, "r");
-    int res = 0;
+    FILE *f;
+    int res = 0, nline = 0;
     char *optkey=NULL, *optval = NULL, line[1024]="";
     const char KEY_USER [] = "username";
     const char KEY_PASS [] = "password";
     const char KEY_MOUNT [] = "mountpoint";
-    const char SEP [] = "=\n";
+    const char SEP [] = "=";
 
+    if ((f = fopen(file_name, "r")) == NULL) {
+        fprintf(stderr, "cannot open %s\n", file_name);
+        return 1;
+    }
+	//bzero(options, sizeof(box_options));
+	
     do {
+	++nline;
         if (fgets(line, sizeof(line), f)==NULL) break;
-        if(line[0]=='#') continue; //skip comments
+	trim(line);
+        if(*line=='#' || strlen(line) == 0) continue; // skip comments
+		
         optkey = strtok(line,SEP);
         optval = strtok(NULL,SEP);
         if(optkey == NULL || optval == NULL) {
-            BOX_ERR("Invalid line in credentials file\n");
+            fprintf(stderr, "Invalid line #%d in credentials file\n", nline);
             res = 1;
             break;
         }
-        trim_right(optkey); trim_left(&optval);
-        //fprintf(stderr, "%s=%s\n", optkey, optval);
+        trim(optkey);
+	trim(optval);
+
         if (!strcmp(optkey,KEY_USER)) options->user = strdup(optval);
         else if (!strcmp(optkey,KEY_PASS)) options->password = strdup(optval);
         else if (!strcmp(optkey,KEY_MOUNT)) options->mountpoint = strdup(optval);
         else { 
-            fprintf(stderr,"Invalid option %s in file %s\n", optkey, file_name);
+            fprintf(stderr,"Invalid option %s in file %s (line #%d)\n", optkey, file_name, nline);
             res = 1;
             break;
         }
     } while(!feof(f));
     fclose(f);
+
     return res;
 };
 
