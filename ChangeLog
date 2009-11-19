@@ -1,6 +1,0 @@
-2009/01/02 - Added initial locking support
-2009/01/02 - Added urlencoding of directory names for correct handling of names with non-letter chars 
-2009/01/27 - Applied command line patch, fixing a couple of rejects
-2009/08/31 - Completed move & rename support
-2009/10/04 - Replaced credfile parsing with a simpler and more robust routine. It now handles spaces between tokens and comments (line starting with a #)
-
