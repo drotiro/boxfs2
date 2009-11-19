@@ -874,42 +874,47 @@ int api_subdirs(const char * path)
   return xmlListSize(dir->folders);
 }  
 
-int walk_getsize(boxfile * aFile, boxfile * info)
+int walk_getfile(boxfile * aFile, boxfile ** info)
 {
-  if(!strcmp(aFile->name,info->name)) {
-    info->size = aFile->size;
+  if(!strcmp(aFile->name,(*info)->name)) {
+    //info->size = aFile->size;
+    free(*info);
+    *info = aFile;
     return 0;
   }
   
   return 1;
 }
 
-long api_getsize(const char * fname)
+boxfile * api_getfile(const char * fname)
 {
-  int res = 0;
   char * obase = strdup(fname), *base = obase;
   boxdir * parent;
   boxfile * aFile;
   
   tree_splitpath(fname, &parent, &base);
-  if(!parent) res = -EINVAL;
+  if(!parent) return NULL;
   else {
     aFile = (boxfile *) malloc(sizeof(boxfile));
     aFile->name = base;
     aFile->size = -EINVAL;
-    xmlListWalk(parent->files,(xmlListWalker)walk_getsize,aFile);
-    res = aFile->size;
-    free(aFile);
+    xmlListWalk(parent->files,(xmlListWalker)walk_getfile,&aFile);
   }
   free(obase);
 
-  return res;
+  if(aFile->size!=-EINVAL) {
+    return aFile;
+  } else {
+    free(aFile);
+    return NULL;
+  }
 }
 
 int api_getattr(const char *path, struct stat *stbuf)
 {
     int res = 0;
     int sd;
+    boxfile * aFile=NULL;
 
     //fprintf(stderr, "*** getattr for %s\n",path);
     memset(stbuf, 0, sizeof(struct stat));
@@ -919,12 +924,15 @@ int api_getattr(const char *path, struct stat *stbuf)
       stbuf->st_nlink = 2 + sd;
       return 0;
     }
-    sd = api_getsize(path);
-    if (sd<0) res = -ENOENT;
+    aFile = api_getfile(path);
+    if (!aFile) res = -ENOENT;
     else {
       stbuf->st_mode = S_IFREG | 0444;
       stbuf->st_nlink = 1;
-      stbuf->st_size = sd;
+      stbuf->st_size = aFile->size;
+      stbuf->st_ctime = aFile->ctime;
+      stbuf->st_mtime = aFile->mtime;
+      stbuf->st_atime = aFile->mtime;
     }
 
     return res;

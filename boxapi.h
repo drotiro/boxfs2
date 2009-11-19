@@ -14,8 +14,6 @@ void 	api_free();
 int 	api_init(int* argc, char*** argv);
 
 int 	api_readdir(const char *, fuse_fill_dir_t, void * buf);
-int 	api_subdirs(const char *);
-long	api_getsize(const char *);
 void	api_getusage(long *, long * );
 
 int	api_open(const char *, const char *);
