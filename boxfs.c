@@ -28,26 +28,7 @@
 
 static int box_getattr(const char *path, struct stat *stbuf)
 {
-    int res = 0;
-    int sd;
-
-    //fprintf(stderr, "*** getattr for %s\n",path);
-    memset(stbuf, 0, sizeof(struct stat));
-    sd = api_subdirs(path);
-    if(sd>-1) { // path is a dir
-      stbuf->st_mode = S_IFDIR | 0755;
-      stbuf->st_nlink = 2 + sd;
-      return 0;
-    } 
-    sd = api_getsize(path);
-    if (sd<0) res = -ENOENT;
-    else {
-      stbuf->st_mode = S_IFREG | 0444;
-      stbuf->st_nlink = 1;
-      stbuf->st_size = sd;
-    }
-
-    return res;
+    return api_getattr(path, stbuf);
 }
 
 static int box_access(const char *path, int mask)

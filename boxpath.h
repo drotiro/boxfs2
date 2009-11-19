@@ -10,6 +10,7 @@
 
 #include <libxml/hash.h>
 #include <pthread.h>
+#include <time.h>
 
 /* Data types */
 typedef struct boxdir_t
@@ -25,6 +26,8 @@ typedef struct boxfile_t
   char * name;
   long size;
   char * id;
+  time_t ctime;
+  time_t mtime;
 } boxfile;
 
 typedef struct boxpath_t

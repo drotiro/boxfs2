@@ -19,6 +19,7 @@ long	api_getsize(const char *);
 void	api_getusage(long *, long * );
 
 int	api_open(const char *, const char *);
+int 	api_getattr(const char *path, struct stat *stbuf);
 void	api_upload(const char *,  const char *);
 int	api_create(const char *);
 int	api_createdir(const char *);

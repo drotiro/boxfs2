@@ -268,6 +268,8 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
           if(!strcmp(attrs->name,"file_name")) aFile->name = strdup(attrs->children->content);
           else if(!strcmp(attrs->name,"size")) aFile->size = atol(attrs->children->content);
           else if(!strcmp(attrs->name,"id")) aFile->id = strdup(attrs->children->content);
+	  else if(!strcmp(attrs->name,"created")) aFile->ctime = atol(attrs->children->content);
+          else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
         }
         xmlListPushBack(aDir->files,aFile);
       }
@@ -903,6 +905,31 @@ long api_getsize(const char * fname)
 
   return res;
 }
+
+int api_getattr(const char *path, struct stat *stbuf)
+{
+    int res = 0;
+    int sd;
+
+    //fprintf(stderr, "*** getattr for %s\n",path);
+    memset(stbuf, 0, sizeof(struct stat));
+    sd = api_subdirs(path);
+    if(sd>-1) { // path is a dir
+      stbuf->st_mode = S_IFDIR | 0755;
+      stbuf->st_nlink = 2 + sd;
+      return 0;
+    }
+    sd = api_getsize(path);
+    if (sd<0) res = -ENOENT;
+    else {
+      stbuf->st_mode = S_IFREG | 0444;
+      stbuf->st_nlink = 1;
+      stbuf->st_size = sd;
+    }
+
+    return res;
+}
+
 
 void scan_rmdir(boxdir * dir, const char * path, const char * name)
 {
