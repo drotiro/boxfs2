@@ -8,6 +8,8 @@
 ***************************************/
 
 #include "boxapi.h"
+//DR:TEST
+#include "boxpath.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +41,7 @@
 #define API_LOGIN_URL "http://www.box.net/api/1.0/auth/"
 #define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
 #define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
-#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params[]=nozip&folder_id=0" \
+#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%5B%5D=nozip&folder_id=0" \
         API_KEY "&auth_token="
 #define API_GET_ACCOUNT_TREE_OK "listing_ok"
 #define API_DOWNLOAD "http://box.net/api/1.0/download/"
@@ -64,23 +66,6 @@ char *ticket = NULL, *auth_token = NULL;
 char treefile[] = "/tmp/boxXXXXXX";
 long tot_space, used_space;
 
-
-typedef struct boxdir_t
-{
-  xmlListPtr folders;
-  xmlListPtr files;
-  char * id;
-  pthread_mutex_t * dirmux;
-} boxdir;
-
-typedef struct boxfile_t
-{
-  char * name;
-  long size;
-  char * id;
-} boxfile;
-
-
 /* command-line options */
 typedef struct box_options_t
 {
@@ -89,8 +74,6 @@ typedef struct box_options_t
     char* mountpoint;
 } box_options;
 
-
-xmlHashTablePtr allDirs = NULL;
 
 void show_usage ();
 void show_fuse_usage ();

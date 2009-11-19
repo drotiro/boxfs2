@@ -1,6 +1,7 @@
-FLAGS = `pkg-config fuse --cflags` `xml2-config --cflags` -g
-LIBS = `pkg-config fuse --libs` `xml2-config --libs`
-OBJS = boxfs.o boxapi.o
+PKGS = fuse libxml-2.0
+FLAGS = `pkg-config ${PKGS} --cflags` -g
+LIBS = `pkg-config ${PKGS} --libs` 
+OBJS = boxfs.o boxapi.o boxpath.o
 BINDIR = /usr/local/bin
 
 .c.o:
