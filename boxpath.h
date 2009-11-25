@@ -12,6 +12,11 @@
 #include <pthread.h>
 #include <time.h>
 
+#ifndef TRUE
+#define TRUE  1
+#define FALSE 0
+#endif
+
 /* Data types */
 typedef struct boxdir_t
 {
@@ -35,6 +40,7 @@ typedef struct boxpath_t
   boxdir  * dir;
   char    * base;
   boxfile * file;
+  int	    is_dir;
 } boxpath;
 
 typedef xmlHashTablePtr boxtree;
@@ -43,8 +49,8 @@ typedef xmlHashTablePtr boxtree;
 extern boxtree allDirs;
 
 /* Manipulation functions */
-boxpath *	boxpath_from_string(const char * path);
+boxpath *       boxpath_from_string(const char * path);
 void		boxpath_free(boxpath * bpath);
-
+int 		boxpath_getfile(boxpath * bpath);
 #endif
 //BOXPATH_H

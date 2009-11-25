@@ -280,6 +280,8 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
         for (attrs = cur_dir->properties; attrs; attrs = attrs->next) {
           if(!strcmp(attrs->name,"name")) aFile->name = strdup(attrs->children->content);
           else if(!strcmp(attrs->name,"id")) aFile->id = strdup(attrs->children->content);
+          else if(!strcmp(attrs->name,"created")) aFile->ctime = atol(attrs->children->content);
+          else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
         }        
         xmlListPushBack(aDir->folders,aFile);
         
@@ -413,7 +415,7 @@ void api_free()
 
   if(ticket) free(ticket);
   if(auth_token) free(auth_token);
-  syslog(LOG_INFO, "unmouning filesystem");
+  syslog(LOG_INFO, "Unmounting filesystem");
   closelog();
   
   xmlNanoHTTPCleanup();
@@ -874,70 +876,37 @@ int api_subdirs(const char * path)
   return xmlListSize(dir->folders);
 }  
 
-int walk_getfile(boxfile * aFile, boxfile ** info)
-{
-  if(!strcmp(aFile->name,(*info)->name)) {
-    //info->size = aFile->size;
-    free(*info);
-    *info = aFile;
-    return 0;
-  }
-  
-  return 1;
-}
-
-boxfile * api_getfile(const char * fname)
-{
-  char * obase = strdup(fname), *base = obase;
-  boxdir * parent;
-  boxfile * aFile;
-  
-  tree_splitpath(fname, &parent, &base);
-  if(!parent) return NULL;
-  else {
-    aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = base;
-    aFile->size = -EINVAL;
-    xmlListWalk(parent->files,(xmlListWalker)walk_getfile,&aFile);
-  }
-  free(obase);
-
-  if(aFile->size!=-EINVAL) {
-    return aFile;
-  } else {
-    free(aFile);
-    return NULL;
-  }
-}
-
 int api_getattr(const char *path, struct stat *stbuf)
 {
-    int res = 0;
-    int sd;
-    boxfile * aFile=NULL;
-
-    //fprintf(stderr, "*** getattr for %s\n",path);
-    memset(stbuf, 0, sizeof(struct stat));
-    sd = api_subdirs(path);
-    if(sd>-1) { // path is a dir
-      stbuf->st_mode = S_IFDIR | 0755;
-      stbuf->st_nlink = 2 + sd;
-      return 0;
-    }
-    aFile = api_getfile(path);
-    if (!aFile) res = -ENOENT;
-    else {
-      stbuf->st_mode = S_IFREG | 0444;
-      stbuf->st_nlink = 1;
-      stbuf->st_size = aFile->size;
-      stbuf->st_ctime = aFile->ctime;
-      stbuf->st_mtime = aFile->mtime;
-      stbuf->st_atime = aFile->mtime;
-    }
-
-    return res;
+	syslog(LOG_INFO, "ECCCOLO!!");	
+	memset(stbuf, 0, sizeof(struct stat));	
+	boxpath * bpath = boxpath_from_string(path);
+	syslog(LOG_INFO,"api_getattr for path %s",path);
+	if(!bpath) return -ENOENT;
+	syslog(LOG_INFO, "ECCCOLO BIS");
+	if(strcmp(path,"/")) {
+		if(!boxpath_getfile(bpath)) {
+			syslog(LOG_INFO,"seeee");
+			boxpath_free(bpath);
+			return -ENOENT;
+		}
+		stbuf->st_size = bpath->file->size;
+		stbuf->st_ctime = bpath->file->ctime;
+		stbuf->st_mtime = bpath->file->mtime;
+		// access time unknown, approx with mtime
+		stbuf->st_atime = bpath->file->mtime;
+	}
+	if(bpath->is_dir) {
+		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_nlink = 2 + api_subdirs(path);
+	} else {
+		stbuf->st_mode = S_IFREG | 0444;
+		stbuf->st_nlink = 1;
+	}
+	syslog(LOG_INFO, "api_getattr about to free");
+	boxpath_free(bpath);
+	return 0;
 }
-
 
 void scan_rmdir(boxdir * dir, const char * path, const char * name)
 {
