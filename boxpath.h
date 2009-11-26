@@ -52,5 +52,6 @@ extern boxtree allDirs;
 boxpath *       boxpath_from_string(const char * path);
 void		boxpath_free(boxpath * bpath);
 int 		boxpath_getfile(boxpath * bpath);
+void 		boxpath_setup_tree(const char * treefile);
 #endif
 //BOXPATH_H
