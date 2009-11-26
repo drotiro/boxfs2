@@ -814,18 +814,16 @@ int api_getattr(const char *path, struct stat *stbuf)
 	syslog(LOG_INFO,"api_getattr for path %s",path);
 	if(!bpath) return -ENOENT;
 	syslog(LOG_INFO, "ECCCOLO BIS");
-	if(strcmp(path,"/")) {
-		if(!boxpath_getfile(bpath)) {
-			syslog(LOG_INFO,"seeee");
-			boxpath_free(bpath);
-			return -ENOENT;
-		}
-		stbuf->st_size = bpath->file->size;
-		stbuf->st_ctime = bpath->file->ctime;
-		stbuf->st_mtime = bpath->file->mtime;
-		// access time unknown, approx with mtime
-		stbuf->st_atime = bpath->file->mtime;
+	if(!boxpath_getfile(bpath)) {
+		syslog(LOG_INFO,"seeee");
+		boxpath_free(bpath);
+		return -ENOENT;
 	}
+	stbuf->st_size = bpath->file->size;
+	stbuf->st_ctime = bpath->file->ctime;
+	stbuf->st_mtime = bpath->file->mtime;
+	// access time unknown, approx with mtime
+	stbuf->st_atime = bpath->file->mtime;
 	if(bpath->is_dir) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2 + api_subdirs(path);
