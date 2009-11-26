@@ -4,14 +4,17 @@ LIBS = `pkg-config ${PKGS} --libs`
 OBJS = boxfs.o boxapi.o boxpath.o
 BINDIR = /usr/local/bin
 
+boxfs:  $(OBJS)
+	gcc -o $@ $(LIBS) $(OBJS)
+
+boxapi.o:	boxapi.c boxapi.h boxpath.h
+boxfs.o:	boxfs.c boxapi.h
+boxpath.o:	boxpath.c boxpath.h
+
 .c.o:
 	gcc $(FLAGS) -c $< -o $@
 
-
-boxfs:	$(OBJS)
-	gcc -o $@ $(LIBS) $(OBJS)
-
-.PHONY: clean install dist
+.PHONY: clean install 
 	
 clean:
 	rm -f $(OBJS) *~ boxfs
@@ -19,7 +22,4 @@ clean:
 install: boxfs
 	cp boxfs $(BINDIR)
 	strip $(BINDIR)/boxfs
-
-dist:	boxfs
-	cd .. && tar czvf dist/boxfs-`date +%Y%m%d`.tgz boxfs/*.[ch] boxfs/Makefile
 
