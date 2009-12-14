@@ -808,14 +808,10 @@ int api_subdirs(const char * path)
 
 int api_getattr(const char *path, struct stat *stbuf)
 {
-	syslog(LOG_INFO, "ECCCOLO!!");	
 	memset(stbuf, 0, sizeof(struct stat));	
 	boxpath * bpath = boxpath_from_string(path);
-	syslog(LOG_INFO,"api_getattr for path %s",path);
 	if(!bpath) return -ENOENT;
-	syslog(LOG_INFO, "ECCCOLO BIS");
 	if(!boxpath_getfile(bpath)) {
-		syslog(LOG_INFO,"seeee");
 		boxpath_free(bpath);
 		return -ENOENT;
 	}
@@ -831,7 +827,6 @@ int api_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_mode = S_IFREG | 0444;
 		stbuf->st_nlink = 1;
 	}
-	syslog(LOG_INFO, "api_getattr about to free");
 	boxpath_free(bpath);
 	return 0;
 }
