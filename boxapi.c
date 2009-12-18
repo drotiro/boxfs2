@@ -8,7 +8,6 @@
 ***************************************/
 
 #include "boxapi.h"
-//DR:TEST
 #include "boxpath.h"
 
 #include <stdio.h>
@@ -562,7 +561,7 @@ void api_getusage(long * tot_sp, long * used_sp)
 int api_createdir(const char * path)
 {
   int res = 0;
-  char * obase = strdup(path), *base = obase, *encbase;
+  char * obase = strdup(path), *base = obase;
   boxdir *parent, *newdir;
   boxfile * aFile;
   char * dirid, *buf, *status;
@@ -797,7 +796,6 @@ int api_readdir(const char * path, fuse_fill_dir_t filler, void * buf)
 
 int api_subdirs(const char * path)
 {
-  int res = 0;
   boxdir * dir;
   
   dir = (boxdir *) xmlHashLookup(allDirs,path);
