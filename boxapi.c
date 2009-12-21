@@ -845,17 +845,14 @@ int walk_remove(boxfile * aFile, boxfile * info)
 int api_removedir(const char * path)
 {
   int res = 0;
-  char * obase = strdup(path), *base = obase;
-  boxdir * parent, * thedir = NULL;
-  boxfile * aFile;
+  boxpath * bpath = boxpath_from_string(path);
       
   char gkurl[512];
   char *buf, *status;
   
-  thedir = xmlHashLookup(allDirs, path);
-  if(!thedir) return -ENOENT;
+  if(!bpath->dir) return -ENOENT;
 
-  sprintf(gkurl, API_RMDIR "%s&target_id=%s", auth_token, thedir->id);
+  sprintf(gkurl, API_RMDIR "%s&target_id=%s", auth_token, bpath->dir->id);
   buf = http_fetch(gkurl);
   status = node_value(buf,"status");
   if(strcmp(status,API_UNLINK_OK)) {
@@ -864,42 +861,32 @@ int api_removedir(const char * path)
   free(status);
   free(buf);
 
-  xmlHashRemoveEntry(allDirs, path, NULL);
+  if(!res) {
+    xmlHashRemoveEntry(allDirs, path, NULL);
 
-  //remove it from parent's subdirs
-  tree_splitpath(path, &parent, &base);
-  if(parent) {
-    aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = base;
-    aFile->id = (char*) parent->folders; //ugly
-	LOCKDIR(parent);
-    xmlListWalk(parent->folders, (xmlListWalker)walk_remove, aFile);
-    UNLOCKDIR(parent);
-    free(aFile);
+    //remove it from parent's subdirs
+    LOCKDIR(bpath->dir);
+    boxpath_removefile(bpath);
+    UNLOCKDIR(bpath->dir);
   }
-    
+  
+  boxpath_free(bpath);  
   return res;
 }
 
 int api_removefile(const char * path)
 {
   int res = 0;
-  char * obase = strdup(path), *base = obase;
-  boxdir * parent;
-  boxfile * aFile;
+  boxpath * bpath = boxpath_from_string(path);
   char gkurl[512];
   char *buf, *status;
 
-  tree_splitpath(path, &parent, &base);
-  if(!parent) res = -ENOTDIR;
+  if(!bpath->dir) res = -ENOTDIR;
   else {
-    aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = base;
     
     //remove it from box.net
-    aFile->id = NULL;
-    xmlListWalk(parent->files, (xmlListWalker)walk_getid, aFile);
-    sprintf(gkurl, API_UNLINK "%s&target_id=%s", auth_token, aFile->id);
+    boxpath_getfile(bpath);
+    sprintf(gkurl, API_UNLINK "%s&target_id=%s", auth_token, bpath->file->id);
     buf = http_fetch(gkurl);
     status = node_value(buf,"status");
     if(strcmp(status,API_UNLINK_OK)) {
@@ -910,16 +897,12 @@ int api_removefile(const char * path)
 
     //remove it from the list
     if(res==0) {
-      aFile->size = -ENOENT;
-      aFile->id = (char*) parent->files; //ugly
-	  LOCKDIR(parent);
-      xmlListWalk(parent->files, (xmlListWalker)walk_remove, aFile);
-	  UNLOCKDIR(parent);
-      res = aFile->size;
+	  LOCKDIR(bpath->dir);
+	  boxpath_removefile(bpath);
+	  UNLOCKDIR(bpath->dir);
     }
-    free(aFile);  
   }
-  free(obase);
+  boxpath_free(bpath);
 
   return res;
 }
@@ -1062,7 +1045,6 @@ int move_and_rename(const char * path, const char * newpath)
 	strcat(to1,dirname(odir));
 	strcat(to1,"/");
 	strcat(to1,basename(onew));
-	syslog(LOG_INFO,"%s => %s",path,to1);
 	res = api_rename(path,to1);
 	if(res) return res;
 	//step2: move
@@ -1140,7 +1122,7 @@ int api_init(int* argc, char*** argv) {
     return 1;
   }
   
-  boxpath_setup_tree(treefile);
+  boxtree_setup(treefile);
   unlink(treefile);
   free_options (&options);
   

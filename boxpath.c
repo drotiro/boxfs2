@@ -13,6 +13,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <errno.h>
+#include <syslog.h>
 #include <libxml/list.h>
 
 boxtree allDirs = NULL;
@@ -79,6 +80,14 @@ int boxpath_getfile(boxpath * bpath)
 	}
 }
 
+int boxpath_removefile(boxpath * bpath)
+{
+	if(!boxpath_getfile(bpath)) return FALSE;
+
+	return xmlListRemoveFirst(
+		bpath->is_dir ? bpath->dir->folders : bpath->dir->files,
+		bpath->file);
+}
 
 /* boxpath_setup_tree and helpers
    used at mount time to fill the allDirs hash
@@ -152,7 +161,7 @@ void setup_root_dir(xmlNode * cur_node) {
 	}
 }
 
-void boxpath_setup_tree(const char * treefile)
+void boxtree_setup(const char * treefile)
 {
   xmlDoc *doc = NULL;
   xmlNode *root_element = NULL;
