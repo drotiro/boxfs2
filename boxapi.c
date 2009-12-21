@@ -561,22 +561,23 @@ void api_getusage(long * tot_sp, long * used_sp)
 int api_createdir(const char * path)
 {
   int res = 0;
-  char * obase = strdup(path), *base = obase;
-  boxdir *parent, *newdir;
+  boxpath * bpath;
+  boxdir *newdir;
   boxfile * aFile;
   char * dirid, *buf, *status;
   char gkurl[512];
 
-  tree_splitpath(path, &parent, &base);
-  if(parent) {
+  bpath = boxpath_from_string(path);
+  if(bpath->dir) {
 	//syslog(LOG_WARNING, "creating dir %s (escaped: %s) ",base,xmlURIEscapeStr(base,""));
     sprintf(gkurl,API_CREATE_DIR "%s&parent_id=%s&name=%s&share=0", 
-          auth_token, parent->id, xmlURIEscapeStr(base,""));
+          auth_token, bpath->dir->id, xmlURIEscapeStr(bpath->base,""));
     buf = http_fetch(gkurl);
     status = node_value(buf,"status");
     if(strcmp(status,API_CREATE_DIR_OK)) {
       res = -EINVAL;
       free(buf); free(status);
+      boxpath_free(bpath);
       return res;
     }
     free(status);
@@ -591,16 +592,17 @@ int api_createdir(const char * path)
     // upd parent
     aFile = (boxfile *) malloc(sizeof(boxfile));
     aFile->id = strdup(dirid);
-    aFile->name = strdup(base);
-	LOCKDIR(parent);
-    xmlListPushBack(parent->folders,aFile);
-	UNLOCKDIR(parent);
+    aFile->name = strdup(bpath->base);
+    aFile->size = 0;
+	LOCKDIR(bpath->dir);
+    xmlListPushBack(bpath->dir->folders,aFile);
+	UNLOCKDIR(bpath->dir);
     
   } else {
     syslog(LOG_WARNING, "UH oh... wrong path %s",path);
     res = -EINVAL;
   }
-  free(obase);
+  boxpath_free(bpath);
 
   return res;
 }
@@ -829,17 +831,6 @@ int api_getattr(const char *path, struct stat *stbuf)
 	return 0;
 }
 
-void scan_rmdir(boxdir * dir, const char * path, const char * name)
-{
-  int len = strlen(path);
-  if(!strncmp( path, name, len)) {
-    if((strlen(name) > len) && (name[len]=='/')) 
-      xmlHashRemoveEntry(allDirs, name, NULL);
-    else if(!strcmp(name, path))
-      xmlHashRemoveEntry(allDirs, name, NULL);
-  }
-}
-
 int walk_remove(boxfile * aFile, boxfile * info)
 {
   if(!strcmp(aFile->name,info->name)) {
@@ -855,7 +846,7 @@ int api_removedir(const char * path)
 {
   int res = 0;
   char * obase = strdup(path), *base = obase;
-  boxdir * parent, * thedir = NULL;;
+  boxdir * parent, * thedir = NULL;
   boxfile * aFile;
       
   char gkurl[512];
@@ -873,7 +864,7 @@ int api_removedir(const char * path)
   free(status);
   free(buf);
 
-  xmlHashScan(allDirs, (xmlHashScanner)scan_rmdir, (void*) path);
+  xmlHashRemoveEntry(allDirs, path, NULL);
 
   //remove it from parent's subdirs
   tree_splitpath(path, &parent, &base);
