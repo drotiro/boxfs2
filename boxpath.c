@@ -89,7 +89,7 @@ int boxpath_removefile(boxpath * bpath)
 		bpath->file);
 }
 
-/* boxpath_setup_tree and helpers
+/* boxtree_setup and helpers
    used at mount time to fill the allDirs hash
 */
 

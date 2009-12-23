@@ -907,6 +907,40 @@ int api_removefile(const char * path)
   return res;
 }
 
+//Move and rename funcs, new version
+int do_api_move(boxpath * bsrc, boxpath * bdst)
+{
+	char * buf = NULL, * status;
+	char gkurl[1024];
+	int res = 0;
+
+	return res;
+}
+int do_api_rename(boxpath * bsrc, boxpath * bdst)
+{
+	char * buf = NULL, * status;
+	char gkurl[1024];
+	int res = 0;
+
+	return res;
+}
+int api_rename_v2(const char * from, const char * to)
+{
+	int res = 0;
+	boxpath * bsrc = boxpath_from_string(from);
+	boxpath * bdst = boxpath_from_string(to);
+	boxpath_getfile(bsrc); boxpath_getfile(bdst);
+	if(bsrc->dir!=bdst->dir) {
+		res=do_api_move(bsrc, bdst);
+	}
+	if(!res && strcmp(bsrc->base, bdst->base)) {
+		res = do_api_rename(bsrc,bdst);
+	}
+	boxpath_free(bsrc);
+	boxpath_free(bdst);
+	return res;
+}
+
 int move_and_rename(const char * path, const char * newpath);
 
 int api_rename(const char * from, const char * to)
