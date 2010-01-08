@@ -61,7 +61,7 @@ static int box_rmdir(const char *path)
 
 static int box_rename(const char *from, const char *to)
 {
-  return api_rename(from, to);
+  return api_rename_v2(from, to);
   //return -EACCES;
   /*
     int res;

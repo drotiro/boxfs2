@@ -53,6 +53,7 @@ boxpath *       boxpath_from_string(const char * path);
 void		boxpath_free(boxpath * bpath);
 int 		boxpath_getfile(boxpath * bpath);
 int		boxpath_removefile(boxpath * bpath);
+int		boxpath_renamefile(boxpath * bpath, const char * newname);
 
 /* Tree handling */
 void 		boxtree_setup(const char * treefile);

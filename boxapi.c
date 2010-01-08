@@ -831,17 +831,6 @@ int api_getattr(const char *path, struct stat *stbuf)
 	return 0;
 }
 
-int walk_remove(boxfile * aFile, boxfile * info)
-{
-  if(!strcmp(aFile->name,info->name)) {
-    info->size = 0;
-    xmlListRemoveFirst((xmlListPtr)info->id , aFile);
-	info->id = (char*) aFile; //return ref to deleted item
-    return 0;
-  }
-  return 1;
-}
-
 int api_removedir(const char * path)
 {
   int res = 0;
@@ -914,6 +903,25 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 	char gkurl[1024];
 	int res = 0;
 
+	LOCKDIR(bsrc->dir);
+	sprintf(gkurl,API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
+		  auth_token, (bsrc->is_dir ? "folder" : "file"),
+		  bsrc->file->id, bdst->dir->id);
+	buf = http_fetch(gkurl);
+	status = node_value(buf,"status");
+	if(strcmp(status,API_MOVE_OK)) {
+	  res = -EINVAL;
+	} else {
+	    boxpath_removefile(bsrc);
+	    
+		LOCKDIR(bdst->dir);
+		xmlListPushBack((bsrc->is_dir ? bdst->dir->folders : bdst->dir->files),
+		  bsrc->file);
+		UNLOCKDIR(bdst->dir);
+	}
+	UNLOCKDIR(bsrc->dir);
+	
+	free(status);free(buf);
 	return res;
 }
 int do_api_rename(boxpath * bsrc, boxpath * bdst)
@@ -922,6 +930,20 @@ int do_api_rename(boxpath * bsrc, boxpath * bdst)
 	char gkurl[1024];
 	int res = 0;
 
+	LOCKDIR(bsrc->dir);
+	sprintf(gkurl,API_RENAME "%s&target=%s&target_id=%s&new_name=%s", 
+		  auth_token, (bsrc->is_dir ? "folder" : "file"),
+		  bsrc->file->id, xmlURIEscapeStr(bdst->base,""));
+	buf = http_fetch(gkurl);
+	status = node_value(buf,"status");
+	if(strcmp(status,API_RENAME_OK)) {
+		res = -EINVAL;
+	} else {
+		boxpath_renamefile(bsrc, bdst->base);
+	}
+	UNLOCKDIR(bsrc->dir);
+
+	free(status);free(buf);
 	return res;
 }
 int api_rename_v2(const char * from, const char * to)
@@ -929,164 +951,24 @@ int api_rename_v2(const char * from, const char * to)
 	int res = 0;
 	boxpath * bsrc = boxpath_from_string(from);
 	boxpath * bdst = boxpath_from_string(to);
-	boxpath_getfile(bsrc); boxpath_getfile(bdst);
+	if(!boxpath_getfile(bsrc)) return -EINVAL; 
+	boxpath_getfile(bdst);
+
 	if(bsrc->dir!=bdst->dir) {
 		res=do_api_move(bsrc, bdst);
 	}
 	if(!res && strcmp(bsrc->base, bdst->base)) {
 		res = do_api_rename(bsrc,bdst);
 	}
+	if(!res && bsrc->is_dir) {
+		LOCKDIR(bsrc->dir);
+		xmlHashRemoveEntry(allDirs, from, NULL);
+		xmlHashAddEntry(allDirs, to, bsrc->dir);
+		UNLOCKDIR(bsrc->dir);
+	}
+
 	boxpath_free(bsrc);
 	boxpath_free(bdst);
-	return res;
-}
-
-int move_and_rename(const char * path, const char * newpath);
-
-int api_rename(const char * from, const char * to)
-{
-	char * buf = NULL, *status;
-	int res = 0;
-	char * ofrom = strdup(from), * oto = strdup(to);
-	char *fbase=ofrom, *tbase=oto;
-	boxdir * fparent, * tparent;
-	char gkurl[1024];
-	char * fid=NULL;
-	boxfile * aFile;
-	boxdir * aDir;
-	
-	tree_splitpath(from, &fparent, &fbase);
-	tree_splitpath(to, &tparent, &tbase);
-	fid = get_fileid(from);
-	//if src & dst dir are the same we can just rename
-	if(fparent==tparent) {
-		//syslog(LOG_DEBUG,"RENAME: from %s [%s] to %s [%s], fid=%s",from, fbase,
-	    //   to, tbase, fid);
-		if(fid) {
-			//syslog(LOG_INFO,"samedir file rename");
-			LOCKDIR(fparent);
-			sprintf(gkurl,API_RENAME "%s&target=file&target_id=%s&new_name=%s", 
-				  auth_token, fid, xmlURIEscapeStr(tbase,""));
-			buf = http_fetch(gkurl);
-			status = node_value(buf,"status");
-			if(strcmp(status,API_RENAME_OK)) {
-			  res = -EINVAL;
-			} else {
-				aFile = (boxfile *) malloc(sizeof(boxfile));
-				aFile->id = fid;
-				aFile->name=strdup(tbase);
-				xmlListWalk(fparent->files,(xmlListWalker)walk_rename,aFile);
-				free(aFile);
-			}
-			free(status);free(buf);
-			UNLOCKDIR(fparent);
-			return res;
-		} else {
-			aDir = xmlHashLookup(allDirs,from);
-			//syslog(LOG_INFO,"samedir dir rename");
-			LOCKDIR(fparent);
-			sprintf(gkurl,API_RENAME "%s&target=folder&target_id=%s&new_name=%s", 
-				  auth_token, aDir->id, xmlURIEscapeStr(tbase,""));
-			buf = http_fetch(gkurl);
-			status = node_value(buf,"status");
-			if(strcmp(status,API_RENAME_OK)) {
-			  res = -EINVAL;
-			} else {
-				LOCKDIR(aDir);
-				xmlHashRemoveEntry(allDirs, from, NULL);
-				xmlHashAddEntry(allDirs, to, aDir);
-				UNLOCKDIR(aDir);
-				char ** names = (char **) malloc (2*sizeof(char*));
-				names[0]=fbase; names[1]=tbase;
-				xmlListWalk(fparent->folders, (xmlListWalker)walk_rename_byname, 
-				            names);
-				free(names);				
-			}
-			free(status);free(buf);
-			UNLOCKDIR(fparent);
-			return res;
-		}
-	}
-	//move + (rename)
-	if(strcmp(fbase,tbase)) return move_and_rename(from,to);
-	//syslog(LOG_DEBUG,"MOVE: from %s [%s] to %s [%s], fid=%s",from, fbase,
-	//       to, tbase, fid);
-	if(fid) {
-		//moving a file
-		LOCKDIR(fparent);
-		sprintf(gkurl,API_MOVE "%s&target=file&target_id=%s&destination_id=%s", 
-			  auth_token, fid, tparent->id);
-		buf = http_fetch(gkurl);
-		status = node_value(buf,"status");
-		if(strcmp(status,API_MOVE_OK)) {
-		  res = -EINVAL;
-		} else {
-			aFile = (boxfile *) malloc(sizeof(boxfile));
-			aFile->id = (char *) fparent->files;
-			aFile->name=strdup(fbase);
-			xmlListWalk(fparent->files,(xmlListWalker)walk_remove,aFile);
-			LOCKDIR(tparent);
-			xmlListPushBack(tparent->files, (boxfile*)aFile->id);
-			UNLOCKDIR(tparent);
-			free(aFile);
-		}
-		free(status);free(buf);
-		UNLOCKDIR(fparent);
-		//verificare se c'è anche un rename!!!
-		return res;		
-	} else {
-		//moving a dir...
-		LOCKDIR(fparent);
-		aDir = xmlHashLookup(allDirs,from);
-		sprintf(gkurl,API_MOVE "%s&target=folder&target_id=%s&destination_id=%s", 
-			  auth_token, aDir->id, tparent->id);
-		buf = http_fetch(gkurl);
-		status = node_value(buf,"status");
-		if(strcmp(status,API_MOVE_OK)) {
-		  res = -EINVAL;
-		} else {
-			LOCKDIR(aDir);
-			xmlHashRemoveEntry(allDirs, from, NULL);
-			xmlHashAddEntry(allDirs, to, aDir);
-			UNLOCKDIR(aDir);
-			aFile = (boxfile *) malloc(sizeof(boxfile));
-			aFile->id = (char *) fparent->folders;
-			aFile->name=strdup(fbase);
-			xmlListWalk(fparent->folders,(xmlListWalker)walk_remove,aFile);
-			LOCKDIR(tparent);
-			xmlListPushBack(tparent->folders, (boxfile*)aFile->id);
-			UNLOCKDIR(tparent);
-			free(aFile);	
-		}
-		free(status);free(buf);
-		UNLOCKDIR(fparent);
-		return res;
-	}
-	
-	return res;
-}
-
-int move_and_rename(const char * path, const char * newpath)
-{
-	char * odir = strdup(path), *onew = strdup(newpath);
-	char * to1;
-	int res;
-
-	//syslog(LOG_INFO,"Starting 2-step rename");
-	//step 1: local rename
-	to1 = malloc(strlen(path)+strlen(newpath)+1);
-	to1[0]=0;
-	strcat(to1,dirname(odir));
-	strcat(to1,"/");
-	strcat(to1,basename(onew));
-	res = api_rename(path,to1);
-	if(res) return res;
-	//step2: move
-	res = api_rename(to1,newpath);
-
-	free(odir); free(onew);
-	free(to1);
-
 	return res;
 }
 

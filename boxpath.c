@@ -89,6 +89,14 @@ int boxpath_removefile(boxpath * bpath)
 		bpath->file);
 }
 
+int boxpath_renamefile(boxpath * bpath, const char * name)
+{
+	if(!boxpath_getfile(bpath)) return FALSE;
+    bpath->base = strdup(name);
+    bpath->file->name = strdup(name);
+}
+
+
 /* boxtree_setup and helpers
    used at mount time to fill the allDirs hash
 */
