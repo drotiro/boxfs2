@@ -670,24 +670,6 @@ int get_tree() {
   return res;
 }
 
-int walk_rename(boxfile * aFile, boxfile * info)
-{
-  if(!strcmp(aFile->id,info->id)) {
-    aFile->name=info->name;
-	return 0;
-  }
-  return 1;	
-}
-
-int walk_rename_byname(boxfile * aFile, char * names[2])
-{
-  if(!strcmp(aFile->name,names[0])) {
-    aFile->name=names[1];
-	return 0;
-  }
-  return 1;	
-}
-
 int walk_getid(boxfile * aFile, boxfile * info)
 {
   if(!strcmp(aFile->name,info->name)) {
