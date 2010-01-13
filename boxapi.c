@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <string.h>
-
+#include <time.h>
 #include <pthread.h>
 
 #include <libxml/nanohttp.h>
@@ -566,6 +566,7 @@ int api_createdir(const char * path)
   boxfile * aFile;
   char * dirid, *buf, *status;
   char gkurl[512];
+  time_t now = time(NULL);
 
   bpath = boxpath_from_string(path);
   if(bpath->dir) {
@@ -594,6 +595,8 @@ int api_createdir(const char * path)
     aFile->id = strdup(dirid);
     aFile->name = strdup(bpath->base);
     aFile->size = 0;
+    aFile->ctime = now;
+    aFile->mtime = now;
 	LOCKDIR(bpath->dir);
     xmlListPushBack(bpath->dir->folders,aFile);
 	UNLOCKDIR(bpath->dir);
@@ -614,6 +617,7 @@ int api_create(const char * path)
   char * obase = strdup(path), *base = obase;
   boxdir * parent;
   boxfile * aFile;
+  time_t now = time(NULL);
 
   tree_splitpath(path, &parent, &base);
   if(parent) {
@@ -621,6 +625,8 @@ int api_create(const char * path)
     aFile->name = strdup(base);
     aFile->size = 0;
     aFile->id = NULL;
+    aFile->ctime = now;
+    aFile->mtime = now;
 	LOCKDIR(parent);
     xmlListPushBack(parent->files,aFile);
     UNLOCKDIR(parent);
@@ -693,6 +699,7 @@ void set_filedata(const char * fname, char * fid, long fsize)
     aFile->name = base;
     aFile->id = fid;
     aFile->size = fsize;
+    aFile->mtime = time(NULL);
     xmlListWalk(parent->files,(xmlListWalker)walk_setid,aFile);
     free(aFile);
   }
@@ -826,7 +833,7 @@ int api_removefile(const char * path)
   char gkurl[512];
   char *buf, *status;
 
-  if(!bpath->dir) res = -ENOTDIR;
+  if(!bpath->dir) res = -ENOENT;
   else {
     
     //remove it from box.net
