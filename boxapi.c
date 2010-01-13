@@ -539,19 +539,6 @@ int get_ticket(struct box_options_t* options) {
   return res;
 }
 
-void tree_splitpath(const char * path, boxdir ** par, char ** file)
-{
-  boxdir * parent = NULL;
-  char * odir = strdup(path), *dir;
-  
-  dir = dirname(odir);
-  *file = basename(*file);
-  parent = xmlHashLookup(allDirs,dir);
-  *par = parent;  
-
-  free(odir);
-}
-
 void api_getusage(long * tot_sp, long * used_sp)
 {
   *tot_sp = tot_space;
@@ -614,27 +601,25 @@ int api_createdir(const char * path)
 int api_create(const char * path)
 {
   int res = 0;
-  char * obase = strdup(path), *base = obase;
-  boxdir * parent;
+  boxpath * bpath = boxpath_from_string(path);
   boxfile * aFile;
   time_t now = time(NULL);
 
-  tree_splitpath(path, &parent, &base);
-  if(parent) {
+  if(bpath->dir) {
     aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = strdup(base);
+    aFile->name = strdup(bpath->base);
     aFile->size = 0;
     aFile->id = NULL;
     aFile->ctime = now;
     aFile->mtime = now;
-	LOCKDIR(parent);
-    xmlListPushBack(parent->files,aFile);
-    UNLOCKDIR(parent);
+	LOCKDIR(bpath->dir);
+    xmlListPushBack(bpath->dir->files,aFile);
+    UNLOCKDIR(bpath->dir);
+    boxpath_free(bpath);
   } else {
     syslog(LOG_WARNING, "UH oh... wrong path %s",path);
-    res = -EINVAL;
+    res = -ENOTDIR;
   }
-  free(obase);
   
   return res;
 }
@@ -687,23 +672,17 @@ int walk_setid(boxfile * aFile, boxfile * info)
   return 1;
 }
 
-void set_filedata(const char * fname, char * fid, long fsize)
+void set_filedata(const boxpath * bpath, char * fid, long fsize)
 {
-  char * obase = strdup(fname), *base = obase;
-  boxdir * parent;
   boxfile * aFile;
 
-  tree_splitpath(fname, &parent, &base);
-  if(parent) {
-    aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = base;
-    aFile->id = fid;
-    aFile->size = fsize;
-    aFile->mtime = time(NULL);
-    xmlListWalk(parent->files,(xmlListWalker)walk_setid,aFile);
-    free(aFile);
-  }
-  free(obase);
+  aFile = (boxfile *) malloc(sizeof(boxfile));
+  aFile->name = bpath->base;
+  aFile->id = fid;
+  aFile->size = fsize;
+  aFile->mtime = time(NULL);
+  xmlListWalk(bpath->dir->files,(xmlListWalker)walk_setid,aFile);
+  free(aFile);
 }
 
 
@@ -937,30 +916,28 @@ int api_rename_v2(const char * from, const char * to)
 
 void api_upload(const char * path, const char * tmpfile)
 {
-  char * obase = strdup(path), *base = obase;
   char * buf = NULL;
   char * res = NULL;
   char gkurl[512];
   char * fid;
-  boxdir * parent;
   long fsize, psize;
+  boxpath * bpath = boxpath_from_string(path);
 
-  tree_splitpath(path, &parent, &base);
-  if(parent) {
-    sprintf(gkurl,API_UPLOAD "%s/%s", auth_token, parent->id);
+  if(bpath->dir) {
+    sprintf(gkurl,API_UPLOAD "%s/%s", auth_token, bpath->dir->id);
     fsize = filesize(tmpfile);
     if(fsize) {
-      psize = post_addfile(&buf, base, tmpfile, fsize);
+      psize = post_addfile(&buf, bpath->base, tmpfile, fsize);
       res = http_postfile(gkurl, buf, psize);
       free(buf);
       fid = attr_value(res,"id");
-      if(fid) set_filedata(path ,fid, fsize);
+      if(fid) set_filedata(bpath ,fid, fsize);
       free(res);
     }
   } else {
-    syslog(LOG_ERR,"Couldn't upload file %s",base);
+    syslog(LOG_ERR,"Couldn't upload file %s",bpath->base);
   }
-  free(obase);
+  boxpath_free(bpath);
 }
 
 
