@@ -670,37 +670,6 @@ int get_tree() {
   return res;
 }
 
-int walk_getid(boxfile * aFile, boxfile * info)
-{
-  if(!strcmp(aFile->name,info->name)) {
-    info->id = aFile->id;
-    return 0;
-  }
-  return 1;
-}
-
-char * get_fileid(const char * fname)
-{
-  char * obase = strdup(fname), *base = obase;
-  char * res = NULL;
-  boxdir * parent;
-  boxfile * aFile;
-
-  tree_splitpath(fname, &parent, &base);
-  if(parent) {
-    aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = base;
-    aFile->id = NULL;
-    xmlListWalk(parent->files,(xmlListWalker)walk_getid,aFile);
-    res = aFile->id;
-    free(aFile);
-  }
-
-  free(obase);
-  return res;
-
-}
-
 int walk_setid(boxfile * aFile, boxfile * info)
 {
   if(!strcmp(aFile->name,info->name)) {
@@ -734,10 +703,15 @@ void set_filedata(const char * fname, char * fid, long fsize)
 int api_open(const char * path, const char * pfile){
   int res = 0;
   char gkurl[512]="";
+  boxpath * bpath = boxpath_from_string(path);
+  if(!boxpath_getfile(bpath)) res = -ENOENT;
   
-  sprintf(gkurl, API_DOWNLOAD "%s/%s", auth_token, get_fileid(path));
-  res = http_fetch_file(gkurl, pfile);
+  if(!res) {
+    sprintf(gkurl, API_DOWNLOAD "%s/%s", auth_token, bpath->file->id);
+    res = http_fetch_file(gkurl, pfile);
+  }
   
+  boxpath_free(bpath);  
   return res;
 }
 
