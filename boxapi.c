@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include <sys/stat.h>
 
 #include <libxml/nanohttp.h>
 #include <libxml/parser.h>
@@ -268,17 +269,12 @@ char * http_fetch(const char * url)
   return buf;
 }
 
-long filesize(const char * localpath)
+off_t filesize(const char * localpath)
 {
-  long fs;
-  FILE * alf;
+  struct stat sb;
   
-  alf = fopen(localpath,"r");
-  fseek(alf, 0L, SEEK_END);
-  fs = ftell(alf);
-  fclose(alf);
-  
-  return fs;
+  stat(localpath, &sb);
+  return sb.st_size;
 }
 
 char * tag_value(const char * buf, const char * tag)
