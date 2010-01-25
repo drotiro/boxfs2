@@ -35,6 +35,7 @@
 
 #define API_KEY_VAL "2uc9ec1gtlyaszba4h6nixt7gyzq3xir"
 #define API_KEY "&api_key=" API_KEY_VAL
+#define API_TOKEN API_KEY "&auth_token="
 #define API_REST_BASE "http://www.box.net/api/1.0/rest?action="
 #define API_GET_TICKET API_REST_BASE "get_ticket" API_KEY
 #define API_GET_TICKET_OK "get_ticket_ok"
@@ -42,19 +43,19 @@
 #define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
 #define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
 #define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%5B%5D=nozip&folder_id=0" \
-        API_KEY "&auth_token="
+        API_TOKEN
 #define API_GET_ACCOUNT_TREE_OK "listing_ok"
 #define API_DOWNLOAD "http://box.net/api/1.0/download/"
 #define API_UPLOAD "http://upload.box.net/api/1.0/upload/"
-#define API_CREATE_DIR API_REST_BASE "create_folder" API_KEY "&auth_token="
+#define API_CREATE_DIR API_REST_BASE "create_folder" API_TOKEN
 #define API_CREATE_DIR_OK "create_ok"
-#define API_RENAME API_REST_BASE "rename" API_KEY "&auth_token="
+#define API_RENAME API_REST_BASE "rename" API_TOKEN
 #define API_RENAME_OK "s_rename_node"
-#define API_MOVE API_REST_BASE "move" API_KEY "&auth_token="
+#define API_MOVE API_REST_BASE "move" API_TOKEN
 #define API_MOVE_OK "s_move_node"
-#define API_UNLINK API_REST_BASE "delete&target=file" API_KEY "&auth_token="
+#define API_UNLINK API_REST_BASE "delete&target=file" API_TOKEN
 #define API_UNLINK_OK "s_delete_node"
-#define API_RMDIR API_REST_BASE "delete&target=folder" API_KEY "&auth_token="
+#define API_RMDIR API_REST_BASE "delete&target=folder" API_TOKEN
 #define API_RMDIR_OK API_UNLINK_OK 
 #define API_LOGOUT API_REST_BASE "logout" API_KEY "&auth_token="
 
@@ -235,18 +236,6 @@ int read_conf_file (const char* file_name, box_options* options)
 
     return res;
 };
-
-boxdir * create_dir()
-{
-  boxdir * aDir;
-  aDir = (boxdir *) malloc(sizeof(boxdir));
-  aDir->files = xmlListCreate(NULL, NULL); // TODO: Deallocator!
-  aDir->folders = xmlListCreate(NULL, NULL);
-  aDir->dirmux = malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(aDir->dirmux, NULL);
-  
-  return aDir;
-}
 
 char * http_fetch(const char * url)
 { 
@@ -570,7 +559,7 @@ int api_createdir(const char * path)
     free(buf);
     
     // aggiungo 1 entry all'hash
-    newdir = create_dir();
+    newdir = boxdir_create();
     newdir->id = dirid;
     xmlHashAddEntry(allDirs, path, newdir);
     // upd parent
@@ -778,7 +767,7 @@ int api_removedir(const char * path)
   char *buf, *status;
   
   if(!bpath->dir) return -ENOENT;
-
+  syslog(LOG_INFO,"removing directory %s",path);
   sprintf(gkurl, API_RMDIR "%s&target_id=%s", auth_token, bpath->dir->id);
   buf = http_fetch(gkurl);
   status = node_value(buf,"status");
@@ -842,6 +831,13 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 	int res = 0;
 
 	LOCKDIR(bsrc->dir);
+	/* DEBUG ===
+	syslog(LOG_INFO, "src file info: name %s, id %s", 
+	  bsrc->file->name, bsrc->file->id);
+	syslog(LOG_INFO, "moving %s %s to id %s (bdst->base is %s)", 
+	  (bsrc->is_dir ? "folder" : "file"),
+	  bsrc->file->id, bdst->dir->id, bdst->base);
+    */
 	sprintf(gkurl,API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
 		  auth_token, (bsrc->is_dir ? "folder" : "file"),
 		  bsrc->file->id, bdst->dir->id);
@@ -869,6 +865,11 @@ int do_api_rename(boxpath * bsrc, boxpath * bdst)
 	int res = 0;
 
 	LOCKDIR(bsrc->dir);
+	/* DEBUG ===
+	syslog(LOG_INFO, "renaming %s %s to %s", 
+	  (bsrc->is_dir ? "folder" : "file"),
+	  bsrc->file->name, bdst->base);
+    */
 	sprintf(gkurl,API_RENAME "%s&target=%s&target_id=%s&new_name=%s", 
 		  auth_token, (bsrc->is_dir ? "folder" : "file"),
 		  bsrc->file->id, xmlURIEscapeStr(bdst->base,""));
@@ -893,16 +894,20 @@ int api_rename_v2(const char * from, const char * to)
 	boxpath_getfile(bdst);
 
 	if(bsrc->dir!=bdst->dir) {
+	    /* Debug ===
+	    if(bsrc->is_dir) {
+	       boxdir * aDir = xmlHashLookup(allDirs, from);
+	       syslog(LOG_INFO, "alt meth lookup src %s %s",
+	         from, aDir->id);
+	    }
+	    */
 		res=do_api_move(bsrc, bdst);
 	}
 	if(!res && strcmp(bsrc->base, bdst->base)) {
 		res = do_api_rename(bsrc,bdst);
 	}
 	if(!res && bsrc->is_dir) {
-		LOCKDIR(bsrc->dir);
-		xmlHashRemoveEntry(allDirs, from, NULL);
-		xmlHashAddEntry(allDirs, to, bsrc->dir);
-		UNLOCKDIR(bsrc->dir);
+	    boxtree_movedir(from, to);
 	}
 
 	boxpath_free(bsrc);

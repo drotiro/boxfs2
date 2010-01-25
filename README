@@ -31,8 +31,9 @@ password = secret
 
 Lines beginning with '#' are treated as comments and ignored.
 
-If you don't specify username and/or password nor in the command line neither in configuration file, you will be prompted for them.
-You must provide the mountpoint, after the other options or in the configuration file.
+If username and/or password are not specified in the command line or in configuration file,
+boxfs will prompt for them at run time.
+The mountpoint must be provided, after the other options or in the configuration file.
 
 When you've done using your files, unmount your filsystem
 with fusermount -u mountpoint

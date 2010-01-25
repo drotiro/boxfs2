@@ -19,6 +19,19 @@
 boxtree allDirs = NULL;
 boxfile * rootDir = NULL;
 
+boxdir * boxdir_create()
+{
+  boxdir * aDir;
+  aDir = (boxdir *) malloc(sizeof(boxdir));
+  aDir->files = xmlListCreate(NULL, NULL); // TODO: Deallocator!
+  aDir->folders = xmlListCreate(NULL, NULL);
+  aDir->dirmux = malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(aDir->dirmux, NULL);
+  
+  return aDir;
+}
+
+
 boxpath *       boxpath_from_string(const char * path)
 {
 	char * dir = dirname(strdup(path));
@@ -101,8 +114,6 @@ int boxpath_renamefile(boxpath * bpath, const char * name)
    used at mount time to fill the allDirs hash
 */
 
-extern boxdir * create_dir();
-
 void parse_dir(const char * path, xmlNode * node, const char * id)
 {
   xmlNodePtr cur_node, cur_file, cur_dir;
@@ -112,7 +123,7 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
   char * newPath;
   int plen = strlen(path);
 
-  aDir = create_dir();
+  aDir = boxdir_create();
 
   for (cur_node = node->children; cur_node; cur_node = cur_node->next) {
     if(!strcmp(cur_node->name,"files")) {
@@ -146,7 +157,7 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
         sprintf(newPath, (plen==1 ? "%s%s" : "%s/%s"), path, aFile->name);
         parse_dir(newPath, cur_dir, aFile->id);
         free(newPath);
-        free(aFile->id);
+        //free(aFile->id); //perché lo disallocavo??
       }
     }
     /* skipping tags & sharing info */
@@ -187,5 +198,15 @@ void boxtree_setup(const char * treefile)
 
   xmlFreeDoc(doc);
 
+}
+
+void		boxtree_movedir(const char * from, const char * to)
+{
+    //TODO: this should be done recursively!!!
+	boxdir * aDir = xmlHashLookup(allDirs, from);
+	//LOCKDIR(aDir);
+	xmlHashRemoveEntry(allDirs, from, NULL);
+	xmlHashAddEntry(allDirs, to, aDir);
+	//UNLOCKDIR(aDir);
 }
 

@@ -57,5 +57,10 @@ int		boxpath_renamefile(boxpath * bpath, const char * newname);
 
 /* Tree handling */
 void 		boxtree_setup(const char * treefile);
+void		boxtree_movedir(const char * from, const char * to);
+
+/* Other utilities */
+boxdir *	boxdir_create();
+
 #endif
 //BOXPATH_H
