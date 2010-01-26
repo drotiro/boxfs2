@@ -36,7 +36,7 @@ boxpath *       boxpath_from_string(const char * path)
 {
 	char * dir = dirname(strdup(path));
 	char * file = basename(strdup(path));
-        boxpath * bpath = (boxpath*) malloc(sizeof(boxpath));
+	boxpath * bpath = (boxpath*) malloc(sizeof(boxpath));
   
 	bpath->dir = xmlHashLookup(allDirs, dir);
 	bpath->base = strdup(file);
@@ -200,13 +200,54 @@ void boxtree_setup(const char * treefile)
 
 }
 
-void		boxtree_movedir(const char * from, const char * to)
+typedef struct boxmoveinfo_t
 {
-    //TODO: this should be done recursively!!!
+  const char * from;
+  const char * to;
+} boxmoveinfo;
+
+void 	boxmoveinfo_init(boxmoveinfo * info, const char * from, const char * to)
+{
+  info->from = from;
+  info->to = to;
+}
+
+int		walk_movedir(boxfile * item, boxmoveinfo * mvinfo);
+
+// Move a dir to another path in the tree,
+// recursively updating all the child entries in allDirs
+void	boxtree_movedir(const char * from, const char * to)
+{
 	boxdir * aDir = xmlHashLookup(allDirs, from);
+	if(!aDir) {
+	  syslog(LOG_ERR, "no such directory %s", from);
+	  return;
+	}
+	boxmoveinfo mvinfo;
+	boxmoveinfo_init(&mvinfo, from, to); 
+	xmlListWalk(aDir->folders, (xmlListWalker)walk_movedir, &mvinfo);
 	//LOCKDIR(aDir);
 	xmlHashRemoveEntry(allDirs, from, NULL);
 	xmlHashAddEntry(allDirs, to, aDir);
 	//UNLOCKDIR(aDir);
+}
+
+char * 	pathappend(const char * one, const char * two)
+{
+  char * res = malloc(strlen(one)+strlen(two)+2);
+  res[0]=0;
+  strcat(res, one);
+  strcat(res, "/");
+  strcat(res, two);
+  return res;
+}
+
+int		walk_movedir(boxfile * item, boxmoveinfo * info)
+{
+    char * newfrom	= pathappend(info->from, item->name);
+    char * newto	= pathappend(info->to,	 item->name);
+    boxtree_movedir(newfrom, newto);
+    free(newfrom); free(newto);
+    return 1;
 }
 
