@@ -16,6 +16,8 @@
 #include <syslog.h>
 #include <libxml/list.h>
 
+#define DIR_HASH_SIZE	1001
+
 boxtree allDirs = NULL;
 boxfile * rootDir = NULL;
 
@@ -186,7 +188,7 @@ void boxtree_setup(const char * treefile)
   xmlNode *root_element = NULL;
   xmlNode *cur_node = NULL;
 
-  allDirs = xmlHashCreate(250);
+  allDirs = xmlHashCreate(DIR_HASH_SIZE);
   doc = xmlParseFile(treefile);
   root_element = xmlDocGetRootElement(doc);
   // raggiungiamo il nodo response--->tree->folder

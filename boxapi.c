@@ -762,13 +762,13 @@ int api_removedir(const char * path)
 {
   int res = 0;
   boxpath * bpath = boxpath_from_string(path);
+  boxpath_getfile(bpath);
       
   char gkurl[512];
   char *buf, *status;
   
-  if(!bpath->dir) return -ENOENT;
-  syslog(LOG_INFO,"removing directory %s",path);
-  sprintf(gkurl, API_RMDIR "%s&target_id=%s", auth_token, bpath->dir->id);
+  if(!bpath->dir && !bpath->is_dir) return -ENOENT;
+  sprintf(gkurl, API_RMDIR "%s&target_id=%s", auth_token, bpath->file->id);
   buf = http_fetch(gkurl);
   status = node_value(buf,"status");
   if(strcmp(status,API_UNLINK_OK)) {
