@@ -28,7 +28,7 @@
 #include <libxml/tree.h>
 #include <libxml/uri.h>
 
-#define BOX_ERR(MSG) fprintf(stderr,MSG);
+#define BOX_ERR(MSG) fprintf(stderr,MSG)
 #define MAXBUF 4096
 #define FALSE 0
 #define TRUE 1
@@ -959,30 +959,23 @@ int api_init(int* argc, char*** argv) {
   openlog("boxfs", LOG_PID, LOG_USER);
   
   res = get_ticket(&options);
-  if(res) {
-    BOX_ERR("Unable to initialize Box.net connection.\n");
-    free_options (&options);
-    return 1;
+  if(res) BOX_ERR("Unable to initialize Box.net connection.\n");
+  else {
+    res = get_key();
+    if(res) BOX_ERR("Error while logging in to Box.net.\n");
+    else {
+      res = get_tree();
+      if(res) BOX_ERR("Error while fetching user file tree\n");
+    }
   }
   
-  res = get_key();
-  if(res) {
-    BOX_ERR("Error while logging in to Box.net.\n");
-    free_options (&options);
-    return 1;
-  }
-
-  res = get_tree();
-  if(res) {
-    BOX_ERR("Error while fetching user file tree\n");
-    free_options (&options);
-    return 1;
-  }
+  if(!res) {
+    boxtree_setup(treefile);
+    unlink(treefile);
   
-  boxtree_setup(treefile);
-  unlink(treefile);
+    syslog(LOG_INFO, "Filesystem mounted on %s", options.mountpoint);
+    syslog(LOG_DEBUG, "Auth token is: %s", auth_token);
+  }
   free_options (&options);
-  
-  syslog(LOG_INFO, "filesystem mounted. Auth token: %s", auth_token);
-  return 0;  
+  return res;
 }
