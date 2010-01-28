@@ -830,13 +830,6 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 	int res = 0;
 
 	LOCKDIR(bsrc->dir);
-	/* DEBUG ===
-	syslog(LOG_INFO, "src file info: name %s, id %s", 
-	  bsrc->file->name, bsrc->file->id);
-	syslog(LOG_INFO, "moving %s %s to id %s (bdst->base is %s)", 
-	  (bsrc->is_dir ? "folder" : "file"),
-	  bsrc->file->id, bdst->dir->id, bdst->base);
-    */
 	sprintf(gkurl,API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
 		  auth_token, (bsrc->is_dir ? "folder" : "file"),
 		  bsrc->file->id, bdst->dir->id);
@@ -864,11 +857,6 @@ int do_api_rename(boxpath * bsrc, boxpath * bdst)
 	int res = 0;
 
 	LOCKDIR(bsrc->dir);
-	/* DEBUG ===
-	syslog(LOG_INFO, "renaming %s %s to %s", 
-	  (bsrc->is_dir ? "folder" : "file"),
-	  bsrc->file->name, bdst->base);
-    */
 	sprintf(gkurl,API_RENAME "%s&target=%s&target_id=%s&new_name=%s", 
 		  auth_token, (bsrc->is_dir ? "folder" : "file"),
 		  bsrc->file->id, xmlURIEscapeStr(bdst->base,""));
@@ -893,13 +881,6 @@ int api_rename_v2(const char * from, const char * to)
 	boxpath_getfile(bdst);
 
 	if(bsrc->dir!=bdst->dir) {
-	    /* Debug ===
-	    if(bsrc->is_dir) {
-	       boxdir * aDir = xmlHashLookup(allDirs, from);
-	       syslog(LOG_INFO, "alt meth lookup src %s %s",
-	         from, aDir->id);
-	    }
-	    */
 		res=do_api_move(bsrc, bdst);
 	}
 	if(!res && strcmp(bsrc->base, bdst->base)) {
