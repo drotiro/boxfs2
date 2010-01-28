@@ -570,9 +570,8 @@ int api_createdir(const char * path)
     aFile->ctime = now;
     aFile->mtime = now;
 	LOCKDIR(bpath->dir);
-    xmlListPushBack(bpath->dir->folders,aFile);
-	UNLOCKDIR(bpath->dir);
-    
+    xmlListPushBack(bpath->dir->folders, aFile);
+	UNLOCKDIR(bpath->dir);    
   } else {
     syslog(LOG_WARNING, "UH oh... wrong path %s",path);
     res = -EINVAL;
@@ -762,8 +761,8 @@ int api_removedir(const char * path)
 {
   int res = 0;
   boxpath * bpath = boxpath_from_string(path);
-  boxpath_getfile(bpath);
-      
+  if(!boxpath_getfile(bpath)) return -EINVAL;
+  
   char gkurl[512];
   char *buf, *status;
   
@@ -778,12 +777,12 @@ int api_removedir(const char * path)
   free(buf);
 
   if(!res) {
-    xmlHashRemoveEntry(allDirs, path, NULL);
-
-    //remove it from parent's subdirs
+    //remove it from parent's subdirs...
     LOCKDIR(bpath->dir);
     boxpath_removefile(bpath);
     UNLOCKDIR(bpath->dir);
+    //...and from dir list
+    xmlHashRemoveEntry(allDirs, path, NULL);
   }
   
   boxpath_free(bpath);  
