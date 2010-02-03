@@ -11,6 +11,16 @@
 
 #define MAXBUF 4096
 
+postdata_t post_init()
+{
+ return malloc(MAXBUF);
+}
+
+void post_free(postdata_t postdata)
+{
+ free(postdata);
+}
+
 char * http_fetch(const char * url)
 {
   void * ctx;
@@ -48,13 +58,13 @@ int http_fetch_file(const char * url, const char * dest)
   return res;
 }
 
-void post_add(char * buf, const char * name, const char * val)
+void post_add(postdata_t buf, const char * name, const char * val)
 {
   sprintf(buf+strlen(buf),"--BfsBy\ncontent-disposition: form-data; name=\"%s\"\n\n%s\n",
         name, val);
 }
 
-long post_addfile(char ** rbuf, const char * name, const char * tmpfile, long fsize)
+long post_addfile(postdata_t * rbuf, const char * name, const char * tmpfile, long fsize)
 {
   FILE * tf;
   int hlen;
@@ -81,7 +91,7 @@ long post_addfile(char ** rbuf, const char * name, const char * tmpfile, long fs
 }
 
 
-void http_post(const char * url, const char * data)
+void http_post(const char * url, postdata_t data)
 {
   void * ctx;
   char contentType[512] = "multipart/form-data, boundary=BfsBy";
@@ -93,7 +103,7 @@ void http_post(const char * url, const char * data)
   free(ct);
 }
 
-char * http_postfile(const char * url, const char * data, long size)
+char * http_postfile(const char * url, postdata_t data, long size)
 {
   void * ctx;
   int len = 0;

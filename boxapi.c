@@ -216,7 +216,8 @@ int read_conf_file (const char* file_name, box_options* options)
         optkey = strtok(line,SEP);
         optval = strtok(NULL,SEP);
         if(optkey == NULL || optval == NULL) {
-            fprintf(stderr, "Invalid line #%d in credentials file\n", nline);
+            fprintf(stderr, "Invalid line #%d in configuration file %s\n", 
+              nline, file_name);
             res = 1;
             break;
         }
@@ -372,7 +373,7 @@ int get_ticket(struct box_options_t* options) {
   char * buf = NULL;
   char * status = NULL;
   int res = 0;
-  char postpar[4096]="";
+  postdata_t postpar=post_init();
   char gkurl[512];
   char* value;
   
@@ -412,6 +413,7 @@ int get_ticket(struct box_options_t* options) {
 
   sprintf(gkurl, API_LOGIN_URL "%s",ticket);
   http_post(gkurl,postpar);
+  post_free(postpar);
   
   return res;
 }
@@ -789,7 +791,7 @@ int api_rename_v2(const char * from, const char * to)
 
 void api_upload(const char * path, const char * tmpfile)
 {
-  char * buf = NULL;
+  postdata_t buf = NULL;
   char * res = NULL;
   char gkurl[512];
   char * fid;
@@ -802,7 +804,7 @@ void api_upload(const char * path, const char * tmpfile)
     if(fsize) {
       psize = post_addfile(&buf, bpath->base, tmpfile, fsize);
       res = http_postfile(gkurl, buf, psize);
-      free(buf);
+      post_free(buf);
       fid = attr_value(res,"id");
       if(fid) set_filedata(bpath ,fid, fsize);
       free(res);
