@@ -10,6 +10,7 @@
 #include "boxapi.h"
 #include "boxpath.h"
 #include "boxhttp.h"
+#include "boxopts.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,25 +29,30 @@
 #include <libxml/tree.h>
 #include <libxml/uri.h>
 
+/* Some constant and utility define */
 #define BOX_ERR(MSG) fprintf(stderr,MSG)
-#define MAXBUF 4096
 #define FALSE 0
-#define TRUE 1
+#define TRUE  1
+#define PROTO_HTTP  "http"
+#define PROTO_HTTPS "https"
 
+/* Building blocks for OpenBox api endpoints
+   and return codes
+*/
 #define API_KEY_VAL "2uc9ec1gtlyaszba4h6nixt7gyzq3xir"
 #define API_KEY "&api_key=" API_KEY_VAL
 #define API_TOKEN API_KEY "&auth_token="
-#define API_REST_BASE "http://www.box.net/api/1.0/rest?action="
+#define API_REST_BASE "://www.box.net/api/1.0/rest?action="
 #define API_GET_TICKET API_REST_BASE "get_ticket" API_KEY
 #define API_GET_TICKET_OK "get_ticket_ok"
 #define API_LOGIN_URL "https://www.box.net/api/1.0/auth/"
 #define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
 #define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
-#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%5B%5D=nozip&folder_id=0" \
+#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%%5B%%5D=nozip&folder_id=0" \
         API_TOKEN
 #define API_GET_ACCOUNT_TREE_OK "listing_ok"
-#define API_DOWNLOAD "http://box.net/api/1.0/download/"
-#define API_UPLOAD "http://upload.box.net/api/1.0/upload/"
+#define API_DOWNLOAD "://www.box.net/api/1.0/download/"
+#define API_UPLOAD "://upload.box.net/api/1.0/upload/"
 #define API_CREATE_DIR API_REST_BASE "create_folder" API_TOKEN
 #define API_CREATE_DIR_OK "create_ok"
 #define API_RENAME API_REST_BASE "rename" API_TOKEN
@@ -66,177 +72,8 @@
 char *ticket = NULL, *auth_token = NULL;
 char treefile[] = "/tmp/boxXXXXXX";
 long tot_space, used_space;
-
-/* command-line options */
-typedef struct box_options_t
-{
-    char* user;
-    char* password;
-    char* mountpoint;
-} box_options;
-
-
-void show_usage ();
-void show_fuse_usage ();
-int  read_conf_file (const char* file_name, struct box_options_t* options);
-
-void wipeopt(char * opt) 
-{
-	int i, l=strlen(opt);
-	for(i = 0; i < l; ++i) opt[i]=0;
-}
-
-int parse_options (int* argc, char*** argv, struct box_options_t* options)
-{
-    int c;
-    char* pass_file = NULL;
-
-    options->user = NULL;
-    options->password = NULL;
-    options->mountpoint = NULL;
-
-    while ((c = getopt (*argc, *argv, "Hhu:p:f:")) != -1) {
-        switch (c) {
-        case 'H':
-            show_fuse_usage ();
-            return 1;
-        case 'h':
-            show_usage ();
-            return 1;
-        case 'u':
-            options->user = strdup (optarg);
-            break;
-        case 'p':
-            options->password = strdup (optarg);
-			wipeopt(optarg);
-            break;
-        case 'f':
-            pass_file = optarg;
-            break;
-        case '?':
-            if (optopt == 'u' || optopt == 'p')
-                printf ("Option -%c requires an argument.\n", optopt);
-            return 1;
-        }
-    }
-
-    if (pass_file) {
-        if (read_conf_file (pass_file, options)) {
-            show_usage();
-            return 1;
-        }
-    }
-
-    /* check for mountpoint presence */
-    if (optind == *argc) {
-        if(options->mountpoint) {
-            optind--;
-            (*argv)[optind] = strdup(options->mountpoint);
-        } else {
-            BOX_ERR("Error: mountpoint not specified\n"
-                "You should pass it on the command line or in the config file.\n");
-            return 1;
-        }
-    }
-
-    *argc -= optind - 1;
-    *argv += optind - 1;
-
-    return 0;
-}
-
-
-void free_options (struct box_options_t* options)
-{
-    if (options->user)
-        free (options->user);
-    if (options->password)
-        free (options->password);
-    if (options->mountpoint)
-        free(options->mountpoint);
-}
-
-
-void show_usage ()
-{
-    printf ("Usage: boxfs [options] [mountPoint] [FUSE Mount Options]\n\n");
-    printf ("Common options:\n");
-    printf ("  -H                show optional FUSE mount options\n");
-    printf ("  -u login          box.net login name\n");
-    printf ("  -p password       box.net password\n");
-    printf ("  -f conffile       file containing configuration options\n\n");
-    printf ("File passed in -f option can have lines such as:\n");
-    printf ("username = mrsmith\n");
-    printf ("mountpoint = /path/to/folder\n");
-    printf ("password = secret\n\n");
-}
-
-
-void show_fuse_usage ()
-{
-    int argc = 2;
-    char* argv[] = { "boxfs", "-h" };
-
-    fuse_main (argc, argv, NULL);
-}
-
-void trim(char *s) {
-	if (!s) return;
-    char *p = s;
-    int l = strlen(p);
-
-    while(isspace(p[l - 1])) p[--l] = 0;
-    while(* p && isspace(* p)) ++p, --l;
-
-    memmove(s, p, l + 1);
-}
-
-int read_conf_file (const char* file_name, box_options* options)
-{
-    FILE *f;
-    int res = 0, nline = 0;
-    char *optkey=NULL, *optval = NULL, line[1024]="";
-    const char KEY_USER [] = "username";
-    const char KEY_PASS [] = "password";
-    const char KEY_MOUNT [] = "mountpoint";
-    const char SEP [] = "=";
-
-    if ((f = fopen(file_name, "r")) == NULL) {
-        fprintf(stderr, "cannot open %s\n", file_name);
-        return 1;
-    }
-	//bzero(options, sizeof(box_options));
-	
-    do {
-	++nline;
-        if (fgets(line, sizeof(line), f)==NULL) break;
-	trim(line);
-        if(*line=='#' || strlen(line) == 0) continue; // skip comments
-		
-        optkey = strtok(line,SEP);
-        optval = strtok(NULL,SEP);
-        if(optkey == NULL || optval == NULL) {
-            fprintf(stderr, "Invalid line #%d in configuration file %s\n", 
-              nline, file_name);
-            res = 1;
-            break;
-        }
-        trim(optkey);
-	trim(optval);
-
-        if (!strcmp(optkey,KEY_USER)) options->user = strdup(optval);
-        else if (!strcmp(optkey,KEY_PASS)) options->password = strdup(optval);
-        else if (!strcmp(optkey,KEY_MOUNT)) options->mountpoint = strdup(optval);
-        else { 
-            fprintf(stderr,"Invalid option %s in file %s (line #%d)\n", optkey, file_name, nline);
-            res = 1;
-            break;
-        }
-    } while(!feof(f));
-    fclose(f);
-
-    return res;
-};
+struct box_options_t options;
+char * proto = PROTO_HTTP;
 
 off_t filesize(const char * localpath)
 {
@@ -297,7 +134,7 @@ void api_logout()
   char * buf;
   char gkurl[512];
   
-  sprintf(gkurl,API_LOGOUT "%s", auth_token);
+  sprintf(gkurl,"%s" API_LOGOUT "%s", proto, auth_token);
   buf = http_fetch(gkurl);
   free(buf);
 }
@@ -377,7 +214,9 @@ int get_ticket(struct box_options_t* options) {
   char gkurl[512];
   char* value;
   
-  buf = http_fetch(API_GET_TICKET);
+  sprintf(gkurl, "%s" API_GET_TICKET, proto);
+  buf = http_fetch(gkurl);
+  gkurl[0] = 0;
   status = node_value(buf,"status");
   if(strcmp(status,API_GET_TICKET_OK)) {
     res = 1;
@@ -437,8 +276,8 @@ int api_createdir(const char * path)
   bpath = boxpath_from_string(path);
   if(bpath->dir) {
 	//syslog(LOG_WARNING, "creating dir %s (escaped: %s) ",base,xmlURIEscapeStr(base,""));
-    sprintf(gkurl,API_CREATE_DIR "%s&parent_id=%s&name=%s&share=0", 
-          auth_token, bpath->dir->id, xmlURIEscapeStr(bpath->base,""));
+    sprintf(gkurl,"%s" API_CREATE_DIR "%s&parent_id=%s&name=%s&share=0", 
+          proto, auth_token, bpath->dir->id, xmlURIEscapeStr(bpath->base,""));
     buf = http_fetch(gkurl);
     status = node_value(buf,"status");
     if(strcmp(status,API_CREATE_DIR_OK)) {
@@ -506,9 +345,9 @@ int get_key() {
   int res = 0;
   char * buf = NULL;
   char * status = NULL;
-  char gkurl[256]=API_GET_AUTH_TOKEN "&ticket=";
+  char gkurl[256];
 
-  strcat(gkurl, ticket);
+  sprintf(gkurl, "%s" API_GET_AUTH_TOKEN "&ticket=%s", proto, ticket);
   buf = http_fetch(gkurl);
   status = node_value(buf,"status");
   if(strcmp(status,API_GET_AUTH_TOKEN_OK)) {
@@ -529,9 +368,9 @@ int get_key() {
 int get_tree() {
   int res = 0;
   int fd;
-  char gkurl[512]=API_GET_ACCOUNT_TREE;
+  char gkurl[512];
 
-  strcat(gkurl, auth_token);
+  sprintf(gkurl, "%s" API_GET_ACCOUNT_TREE "%s", proto, auth_token);
   fd = mkstemp(treefile);
   if(fd!=-1) close(fd);
   res = http_fetch_file(gkurl,treefile);
@@ -571,7 +410,7 @@ int api_open(const char * path, const char * pfile){
   if(!boxpath_getfile(bpath)) res = -ENOENT;
   
   if(!res) {
-    sprintf(gkurl, API_DOWNLOAD "%s/%s", auth_token, bpath->file->id);
+    sprintf(gkurl, "%s" API_DOWNLOAD "%s/%s", proto, auth_token, bpath->file->id);
     res = http_fetch_file(gkurl, pfile);
   }
   
@@ -661,7 +500,7 @@ int api_removedir(const char * path)
   char *buf, *status;
   
   if(!bpath->dir && !bpath->is_dir) return -ENOENT;
-  sprintf(gkurl, API_RMDIR "%s&target_id=%s", auth_token, bpath->file->id);
+  sprintf(gkurl, "%s" API_RMDIR "%s&target_id=%s", proto, auth_token, bpath->file->id);
   buf = http_fetch(gkurl);
   status = node_value(buf,"status");
   if(strcmp(status,API_UNLINK_OK)) {
@@ -695,7 +534,8 @@ int api_removefile(const char * path)
     
     //remove it from box.net
     boxpath_getfile(bpath);
-    sprintf(gkurl, API_UNLINK "%s&target_id=%s", auth_token, bpath->file->id);
+    sprintf(gkurl, "%s" API_UNLINK "%s&target_id=%s", proto, auth_token,
+      bpath->file->id);
     buf = http_fetch(gkurl);
     status = node_value(buf,"status");
     if(strcmp(status,API_UNLINK_OK)) {
@@ -724,8 +564,8 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 	int res = 0;
 
 	LOCKDIR(bsrc->dir);
-	sprintf(gkurl,API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
-		  auth_token, (bsrc->is_dir ? "folder" : "file"),
+	sprintf(gkurl, "%s" API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
+		  proto, auth_token, (bsrc->is_dir ? "folder" : "file"),
 		  bsrc->file->id, bdst->dir->id);
 	buf = http_fetch(gkurl);
 	status = node_value(buf,"status");
@@ -751,8 +591,8 @@ int do_api_rename(boxpath * bsrc, boxpath * bdst)
 	int res = 0;
 
 	LOCKDIR(bsrc->dir);
-	sprintf(gkurl,API_RENAME "%s&target=%s&target_id=%s&new_name=%s", 
-		  auth_token, (bsrc->is_dir ? "folder" : "file"),
+	sprintf(gkurl, "%s" API_RENAME "%s&target=%s&target_id=%s&new_name=%s",
+		  proto, auth_token, (bsrc->is_dir ? "folder" : "file"),
 		  bsrc->file->id, xmlURIEscapeStr(bdst->base,""));
 	buf = http_fetch(gkurl);
 	status = node_value(buf,"status");
@@ -799,7 +639,7 @@ void api_upload(const char * path, const char * tmpfile)
   boxpath * bpath = boxpath_from_string(path);
 
   if(bpath->dir) {
-    sprintf(gkurl,API_UPLOAD "%s/%s", auth_token, bpath->dir->id);
+    sprintf(gkurl, "%s" API_UPLOAD "%s/%s", proto, auth_token, bpath->dir->id);
     fsize = filesize(tmpfile);
     if(fsize) {
       post_addfile(buf, bpath->base, tmpfile);
@@ -822,15 +662,14 @@ void api_upload(const char * path, const char * tmpfile)
 int api_init(int* argc, char*** argv) {
 
   int res = 0;
-  struct box_options_t options;
 
   /* parse command line arguments */
   if (parse_options (argc, argv, &options))
-      return 1;
-
+      return 1;  
+  
   xmlInitParser();
-  xmlNanoHTTPInit();
   openlog("boxfs", LOG_PID, LOG_USER);
+  proto = options.secure ? PROTO_HTTPS : PROTO_HTTP;
   
   res = get_ticket(&options);
   if(res) BOX_ERR("Unable to initialize Box.net connection.\n");
@@ -848,7 +687,7 @@ int api_init(int* argc, char*** argv) {
     unlink(treefile);
   
     syslog(LOG_INFO, "Filesystem mounted on %s", options.mountpoint);
-    syslog(LOG_DEBUG, "Auth token is: %s", auth_token);
+    if(options.verbose) syslog(LOG_DEBUG, "Auth token is: %s", auth_token);
   }
   free_options (&options);
   return res;

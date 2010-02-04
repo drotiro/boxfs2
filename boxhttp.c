@@ -9,6 +9,7 @@
 #include <syslog.h>
 
 #include "boxhttp.h"
+#include "boxopts.h"
 
 #define MAXBUF 4096
 
@@ -71,7 +72,7 @@ int http_fetch_file(const char * url, const char * dest)
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fout);
     res = curl_easy_perform(curl);
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &dt);
-    syslog(LOG_DEBUG, "Url %s fetched in %f seconds", url, dt);
+    if(options.verbose) syslog(LOG_DEBUG, "Url %s fetched in %f seconds", url, dt);
 
     curl_easy_cleanup(curl);
     fclose(fout);

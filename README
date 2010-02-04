@@ -18,15 +18,19 @@ Usage
 
 Usage: boxfs [options] [mountPoint] [FUSE Mount Options]
 
-Common options:
+Options:
   -H                show optional FUSE mount options
   -u login          box.net login name
   -p password       box.net password
   -f conffile       file containing configuration options
+  -v                turn on verbose syslogging
+  -s                turn on secure connections (HTTPS) to box.net
 
-File passed in -f option can have lines such as:
-username = mrsmith
+Configuration file example:
+username   = mymail@mydomain.com
 mountpoint = /path/to/folder
+verbose    = no
+secure     = no
 password = secret
 
 Lines beginning with '#' are treated as comments and ignored.
@@ -43,7 +47,6 @@ with fusermount -u mountpoint
 Known problems/limitations
 ==========================
 
-Probably too many to be listed here.
+Tags and sharing informations are not handled at the moment.
 
-Questions? Write me at pinguino(@)thesaguaros.com
-
+For any questions write me at pinguino(@)thesaguaros.com.

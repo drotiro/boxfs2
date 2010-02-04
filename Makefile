@@ -1,16 +1,17 @@
 PKGS = fuse libxml-2.0 libcurl
 FLAGS = `pkg-config ${PKGS} --cflags` -g ${CFLAGS}
 LIBS = `pkg-config ${PKGS} --libs` 
-OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o
+OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o
 BINDIR = /usr/local/bin
 
 boxfs:  $(OBJS)
 	gcc -o $@ $(LIBS) $(OBJS)
 
-boxapi.o:	boxapi.c boxapi.h boxpath.h boxhttp.h
+boxapi.o:	boxapi.c boxapi.h boxpath.h boxhttp.h boxopts.h
 boxfs.o:	boxfs.c boxapi.h
 boxpath.o:	boxpath.c boxpath.h
-boxhttp.o:	boxhttp.c boxhttp.h
+boxhttp.o:	boxhttp.c boxhttp.h boxopts.h
+boxopts.o:	boxopts.c boxopts.h
 
 .c.o:
 	gcc $(FLAGS) -c $< -o $@

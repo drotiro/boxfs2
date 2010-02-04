@@ -8,7 +8,6 @@
 */
 
 /* A type for data to be posted */
-//typedef char * postdata_t;
 struct postdata {
    struct curl_httppost * post;
    struct curl_httppost * last;

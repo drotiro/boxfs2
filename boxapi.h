@@ -8,8 +8,6 @@
 
 #include <fuse.h>
 
-typedef void * APIDIR;
-
 void 	api_free(); 
 int 	api_init(int* argc, char*** argv);
 
