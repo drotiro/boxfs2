@@ -1,4 +1,4 @@
-PKGS = fuse libxml-2.0
+PKGS = fuse libxml-2.0 libcurl
 FLAGS = `pkg-config ${PKGS} --cflags` -g ${CFLAGS}
 LIBS = `pkg-config ${PKGS} --libs` 
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o

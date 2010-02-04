@@ -2,10 +2,11 @@
  Licensed under the GPLv2
 **************************/
 
-#include <libxml/nanohttp.h>
+#include <curl/curl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <syslog.h>
 
 #include "boxhttp.h"
 
@@ -13,117 +14,124 @@
 
 postdata_t post_init()
 {
- return malloc(MAXBUF);
+  postdata_t pd = malloc(sizeof(struct postdata));
+  pd->post = NULL;
+  pd->last = NULL;
+  return pd;
 }
 
 void post_free(postdata_t postdata)
 {
- free(postdata);
+  curl_formfree(postdata->post);
+  free(postdata);
+}
+
+size_t throw_data(void * data, size_t size, size_t nmemb, void * stream)
+{
+  return size*nmemb; 
+}
+
+size_t fetch_append(void * data, size_t size, size_t nmemb, void * stream)
+{
+  strncat(stream, data, size*nmemb);
+  return size*nmemb; 
 }
 
 char * http_fetch(const char * url)
 {
-  void * ctx;
-  int len = 0;
-  char * buf = NULL, *ct;
+  CURL *curl;
+  CURLcode res = -1;
+  char * data = malloc(MAXBUF);
 
-  ctx = xmlNanoHTTPOpen(url, &ct);
-  if(!ctx) {
-    //syslog(LOG_ERR, "Connection problem fetching url %s",url);
-  } else {
-    len = xmlNanoHTTPContentLength(ctx);
-    if(len <= 0) len = MAXBUF;
-    buf = (char*)malloc(len);
-    len = xmlNanoHTTPRead(ctx,buf,len);
-    buf[len] = 0;
-    xmlNanoHTTPClose(ctx);
+  data[0] = 0;
+  curl = curl_easy_init();
+  if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+    res = curl_easy_perform(curl);
+
+    curl_easy_cleanup(curl);
   }
-
-  return buf;
+  
+  return data;
 }
 
 int http_fetch_file(const char * url, const char * dest)
 {
-  void * ctx;
-  int res = 1;
-  char *ct;
+  CURL *curl;
+  CURLcode res = -1;
+  FILE * fout;
+  double dt;
 
-  ctx = xmlNanoHTTPOpen(url, &ct);
-  if(!ctx) {
-    //syslog(LOG_ERR, "Connection problem fetching url %s",url);
-  } else {
-    res = xmlNanoHTTPSave(ctx, dest);
+  curl = curl_easy_init();
+  if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    fout = fopen(dest,"w");
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fout);
+    res = curl_easy_perform(curl);
+    curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &dt);
+    syslog(LOG_DEBUG, "Url %s fetched in %f seconds", url, dt);
+
+    curl_easy_cleanup(curl);
+    fclose(fout);
   }
-
   return res;
 }
 
 void post_add(postdata_t buf, const char * name, const char * val)
 {
-  sprintf(buf+strlen(buf),"--BfsBy\ncontent-disposition: form-data; name=\"%s\"\n\n%s\n",
-        name, val);
+  curl_formadd(&buf->post, &buf->last, 
+    CURLFORM_COPYNAME, name,
+    CURLFORM_COPYCONTENTS, val,
+    CURLFORM_END);
 }
 
-long post_addfile(postdata_t * rbuf, const char * name, const char * tmpfile, long fsize)
+long post_addfile(postdata_t pd, const char * name, const char * tmpfile)
 {
-  FILE * tf;
-  int hlen;
-  char * buf = NULL;
-  long bufsize = fsize+256+strlen(name);
-  
-  buf = malloc(bufsize);
-  if(!buf) { 
-    //syslog(LOG_ERR, "Cannot allocate %ld bytes of memory",bufsize);
-    *rbuf = NULL;
-    return -1;
+  curl_formadd(&pd->post, &pd->last,
+    CURLFORM_COPYNAME, "new_file0",
+    CURLFORM_FILENAME, name,
+    CURLFORM_FILE, tmpfile,
+    CURLFORM_END);
+  return 0;
+}
+
+
+void http_post(const char * url, postdata_t pd)
+{
+  CURL *curl;
+  CURLcode res = -1;
+
+  curl = curl_easy_init();
+  if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, throw_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
+    res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
-  buf[0]=0;
-  *rbuf=buf;
-  
-  sprintf(buf,"--BfsBy\ncontent-disposition: form-data; name=\"new_file0\"; filename=\"%s\"\n"
-            "Content-Type: application/octet-stream\nContent-Transfer-Encoding: binary\n\n", name);
-  hlen = strlen(buf);
-  tf = fopen(tmpfile,"r");
-  fread(buf+hlen, 1, fsize, tf);
-  fclose(tf);
-  memcpy(buf+hlen+fsize,"\n--BfsBy--\n\0",12);
-  return fsize+hlen+11;  
 }
 
-
-void http_post(const char * url, postdata_t data)
+char * http_postfile(const char * url, postdata_t pd)
 {
-  void * ctx;
-  char contentType[512] = "multipart/form-data, boundary=BfsBy";
-  char * ct = contentType;
-  
-  ctx = xmlNanoHTTPMethod(url, "POST", data, &ct, 
-        NULL, strlen(data));
-  xmlNanoHTTPClose(ctx);
-  free(ct);
-}
+  CURL *curl;
+  CURLcode res = -1;
+  char * data = malloc(MAXBUF);
 
-char * http_postfile(const char * url, postdata_t data, long size)
-{
-  void * ctx;
-  int len = 0;
-  char contentType[512] = "multipart/form-data, boundary=BfsBy";
-  char * ct = contentType;
-  char * buf;
+  data[0] = 0;
+  curl = curl_easy_init();
+  if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+    res = curl_easy_perform(curl);
 
-  ctx = xmlNanoHTTPMethod(url, "POST", data, &ct,
-        NULL, size);
-        
-  len = xmlNanoHTTPContentLength(ctx);
-  //fprintf(stderr, "Response content length: %d\n",len);
-  if(len <= 0) len = MAXBUF;
-  buf = (char*)malloc(len);
-  len = xmlNanoHTTPRead(ctx,buf,len);
-  buf[len] = 0;
-  xmlNanoHTTPClose(ctx);
-  free(ct);
-  //fprintf(stderr,"RESPONSE:\n%s\n",buf);
+    curl_easy_cleanup(curl);
+  }
 
-  return buf;  
+  return data;
 }
                                              

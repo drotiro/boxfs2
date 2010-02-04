@@ -39,7 +39,7 @@
 #define API_REST_BASE "http://www.box.net/api/1.0/rest?action="
 #define API_GET_TICKET API_REST_BASE "get_ticket" API_KEY
 #define API_GET_TICKET_OK "get_ticket_ok"
-#define API_LOGIN_URL "http://www.box.net/api/1.0/auth/"
+#define API_LOGIN_URL "https://www.box.net/api/1.0/auth/"
 #define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
 #define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
 #define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%5B%5D=nozip&folder_id=0" \
@@ -791,19 +791,19 @@ int api_rename_v2(const char * from, const char * to)
 
 void api_upload(const char * path, const char * tmpfile)
 {
-  postdata_t buf = NULL;
+  postdata_t buf = post_init();
   char * res = NULL;
   char gkurl[512];
   char * fid;
-  long fsize, psize;
+  long fsize;
   boxpath * bpath = boxpath_from_string(path);
 
   if(bpath->dir) {
     sprintf(gkurl,API_UPLOAD "%s/%s", auth_token, bpath->dir->id);
     fsize = filesize(tmpfile);
     if(fsize) {
-      psize = post_addfile(&buf, bpath->base, tmpfile, fsize);
-      res = http_postfile(gkurl, buf, psize);
+      post_addfile(buf, bpath->base, tmpfile);
+      res = http_postfile(gkurl, buf);
       post_free(buf);
       fid = attr_value(res,"id");
       if(fid) set_filedata(bpath ,fid, fsize);

@@ -8,7 +8,13 @@
 */
 
 /* A type for data to be posted */
-typedef char * postdata_t;
+//typedef char * postdata_t;
+struct postdata {
+   struct curl_httppost * post;
+   struct curl_httppost * last;
+};
+typedef struct postdata * postdata_t;
+
 postdata_t	post_init();
 void		post_free(postdata_t postdata);
 
@@ -18,9 +24,9 @@ int		http_fetch_file(const char * url, const char * dest);
 
 /* Data POSTing */
 void post_add(postdata_t buf, const char * name, const char * val);
-long post_addfile(postdata_t * rbuf, const char * name, const char * tmpfile, long fsize);
+long post_addfile(postdata_t rbuf, const char * name, const char * tmpfile);
 void http_post(const char * url, postdata_t data);
-char * http_postfile(const char * url, postdata_t data, long size);
+char * http_postfile(const char * url, postdata_t data);
 
 
 #endif
