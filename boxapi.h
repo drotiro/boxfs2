@@ -21,7 +21,7 @@ int	api_create(const char *);
 int	api_createdir(const char *);
 int	api_removefile(const char *);
 int	api_removedir(const char *);
-int api_rename(const char *, const char *);
+int api_rename_v2(const char *, const char *);
 #endif
 // BOXAPI_H
 

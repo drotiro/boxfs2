@@ -26,11 +26,6 @@
 
 #define CAST_PATH (char*)(int)
 
-static int box_getattr(const char *path, struct stat *stbuf)
-{
-    return api_getattr(path, stbuf);
-}
-
 static int box_access(const char *path, int mask)
 {
     return 0;
@@ -47,31 +42,6 @@ static int box_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int box_mkdir(const char *path, mode_t mode)
 {
   return api_createdir(path);
-}
-
-static int box_unlink(const char *path)
-{
-  return api_removefile(path);
-}
-
-static int box_rmdir(const char *path)
-{
-  return api_removedir(path);
-}
-
-static int box_rename(const char *from, const char *to)
-{
-  return api_rename_v2(from, to);
-  //return -EACCES;
-  /*
-    int res;
-
-    res = rename(from, to);
-    if (res == -1)
-        return -errno;
-
-    return 0;
-  */
 }
 
 static int box_release(const char *path, struct fuse_file_info *fi)
@@ -217,14 +187,14 @@ static int box_statfs(const char *path, struct statvfs *stbuf)
 }
 
 static struct fuse_operations box_oper = {
-    .getattr	= box_getattr,
+    .getattr	= /*box_getattr*/ api_getattr,
     .access	= box_access,
     .readdir	= box_readdir,
     .mkdir	= box_mkdir,
-    .unlink	= box_unlink,
-    .rmdir	= box_rmdir,
+    .unlink	= /*box_unlink*/ api_removefile,
+    .rmdir	= /*box_rmdir*/ api_removedir,
     .release	= box_release,
-    .rename	= box_rename,
+    .rename	= /*box_rename*/ api_rename_v2,
     .truncate	= box_truncate,
     .utimens	= box_utimens,
     .open	= box_open,

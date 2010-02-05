@@ -149,7 +149,6 @@ void api_free()
   syslog(LOG_INFO, "Unmounting filesystem");
   closelog();
   
-  xmlNanoHTTPCleanup();
   xmlCleanupParser();
   if(allDirs) xmlHashFree(allDirs, NULL); // TODO: Deallocator!
 }
@@ -227,10 +226,6 @@ int get_ticket(struct box_options_t* options) {
   if(status) free(status);
 
   /* autologin using http POST */
-  /*
-  login = askuser("Login: ",FALSE);
-  password = askuser("Password: ",TRUE);
-  */
   post_add(postpar,"dologin","1");
   post_add(postpar,"__login","1");
 
