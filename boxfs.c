@@ -187,14 +187,14 @@ static int box_statfs(const char *path, struct statvfs *stbuf)
 }
 
 static struct fuse_operations box_oper = {
-    .getattr	= /*box_getattr*/ api_getattr,
+    .getattr	= api_getattr,
     .access	= box_access,
     .readdir	= box_readdir,
     .mkdir	= box_mkdir,
-    .unlink	= /*box_unlink*/ api_removefile,
-    .rmdir	= /*box_rmdir*/ api_removedir,
+    .unlink	= api_removefile,
+    .rmdir	= api_removedir,
     .release	= box_release,
-    .rename	= /*box_rename*/ api_rename_v2,
+    .rename	= api_rename_v2,
     .truncate	= box_truncate,
     .utimens	= box_utimens,
     .open	= box_open,
