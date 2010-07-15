@@ -48,8 +48,7 @@ void show_fuse_usage ()
 
 void wipeopt(char * opt) 
 {
-	int i, l=strlen(opt);
-	for(i = 0; i < l; ++i) opt[i]=0;
+	memset(opt, 0, strlen(opt));
 }
 
 
