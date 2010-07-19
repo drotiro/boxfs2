@@ -2,7 +2,8 @@ PKGS = fuse libxml-2.0 libcurl
 FLAGS = `pkg-config ${PKGS} --cflags` -g ${CFLAGS}
 LIBS = `pkg-config ${PKGS} --libs` 
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o
-BINDIR = /usr/local/bin
+PREFIX = /usr/local
+BINDIR = $(PREFIX)/bin
 
 boxfs:  $(OBJS)
 	gcc -o $@ $(LIBS) $(OBJS)
@@ -22,6 +23,5 @@ clean:
 	rm -f $(OBJS) *~ boxfs
 
 install: boxfs
-	cp boxfs $(BINDIR)
-	strip $(BINDIR)/boxfs
+	install -s boxfs $(BINDIR)
 
