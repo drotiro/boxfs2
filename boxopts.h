@@ -20,7 +20,6 @@ typedef struct box_options_t
 extern box_options options;
 
 int parse_options (int* argc, char*** argv, box_options * options);
-void free_options (box_options * options);
 
 #endif
 //BOXOPTS_H

@@ -182,29 +182,6 @@ char * node_value(const char * buf, const char * name)
   return val;   
 }
 
-void set_echo(int enable)
-{
-  struct termios tio;
-  int tty = fileno(stdin); //a better way?
-  
-  if(!tcgetattr(tty, &tio)) {
-    if (enable) tio.c_lflag |= ECHO;
-    else tio.c_lflag &= ~ECHO;
-	
-    tcsetattr(tty, TCSANOW, &tio);
-  }
-}
-
-char * askuser(const char * what, int passwd)
-{
-  char * val = malloc(512);
-  printf("%s ",what);
-  if(passwd) set_echo(FALSE);
-  scanf("%s",val);
-  if(passwd) { set_echo(TRUE); printf("\n");}
-  return val;
-}
-
 int get_ticket(struct box_options_t* options) {
   char * buf = NULL;
   char * status = NULL;
@@ -229,21 +206,8 @@ int get_ticket(struct box_options_t* options) {
   post_add(postpar,"dologin","1");
   post_add(postpar,"__login","1");
 
-  if (options->user)
-      post_add(postpar,"login",options->user);
-  else {
-      value = askuser("Login: ",FALSE);
-      post_add(postpar,"login",value);
-      free (value);
-  }
-
-  if (options->password)
-      post_add(postpar,"password",options->password);
-  else {
-      value = askuser("Password: ",TRUE);
-      post_add(postpar,"password",value);
-      free (value);
-  }
+  post_add(postpar,"login",options->user);
+  post_add(postpar,"password",options->password);
 
   sprintf(gkurl, API_LOGIN_URL "%s",ticket);
   http_post(gkurl,postpar);
@@ -684,6 +648,5 @@ int api_init(int* argc, char*** argv) {
     syslog(LOG_INFO, "Filesystem mounted on %s", options.mountpoint);
     if(options.verbose) syslog(LOG_DEBUG, "Auth token is: %s", auth_token);
   }
-  free_options (&options);
   return res;
 }
