@@ -29,12 +29,6 @@
 #include <libxml/tree.h>
 #include <libxml/uri.h>
 
-/* Some constant and utility define */
-#define BOX_ERR(MSG) fprintf(stderr,MSG)
-#define FALSE 0
-#define TRUE  1
-#define PROTO_HTTP  "http"
-#define PROTO_HTTPS "https"
 
 /* Building blocks for OpenBox api endpoints
    and return codes
@@ -65,8 +59,8 @@
 #define API_RMDIR_OK API_UNLINK_OK 
 #define API_LOGOUT API_REST_BASE "logout" API_KEY "&auth_token="
 
-#define LOCKDIR(dir) /*syslog(LOG_INFO, "LOCKING DIR %s", dir->id);*/ pthread_mutex_lock(dir->dirmux);
-#define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); /*syslog(LOG_INFO, "UNLOCKING DIR %s", dir->id);*/
+#define LOCKDIR(dir) pthread_mutex_lock(dir->dirmux);
+#define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); 
 
 /* globals, written during initialization */
 char *ticket = NULL, *auth_token = NULL;
@@ -126,6 +120,13 @@ char * attr_value(const char * buf, const char * attr)
   tmp[ep-sp]=0;
 
   return tmp;
+}
+
+int ends_with(const char * str, const char * suff)
+{
+        char * sub = strstr(str, suff);
+        if(!sub) return FALSE;
+        return !strcmp(suff, sub);
 }
 
 
@@ -188,7 +189,6 @@ int get_ticket(struct box_options_t* options) {
   int res = 0;
   postdata_t postpar=post_init();
   char gkurl[512];
-  char* value;
   
   sprintf(gkurl, "%s" API_GET_TICKET, proto);
   buf = http_fetch(gkurl);
@@ -230,7 +230,6 @@ int api_createdir(const char * path)
   boxfile * aFile;
   char * dirid, *buf, *status;
   char gkurl[512];
-  time_t now = time(NULL);
 
   bpath = boxpath_from_string(path);
   if(bpath->dir) {
@@ -255,15 +254,11 @@ int api_createdir(const char * path)
     newdir->id = dirid;
     xmlHashAddEntry(allDirs, path, newdir);
     // upd parent
-    aFile = (boxfile *) malloc(sizeof(boxfile));
+    aFile = boxfile_create(bpath->base);
     aFile->id = strdup(dirid);
-    aFile->name = strdup(bpath->base);
-    aFile->size = 0;
-    aFile->ctime = now;
-    aFile->mtime = now;
-	LOCKDIR(bpath->dir);
-    xmlListPushBack(bpath->dir->folders, aFile);
-	UNLOCKDIR(bpath->dir);    
+    LOCKDIR(bpath->dir);
+    list_append(bpath->dir->folders, aFile);
+    UNLOCKDIR(bpath->dir);    
   } else {
     syslog(LOG_WARNING, "UH oh... wrong path %s",path);
     res = -EINVAL;
@@ -279,23 +274,17 @@ int api_create(const char * path)
   int res = 0;
   boxpath * bpath = boxpath_from_string(path);
   boxfile * aFile;
-  time_t now = time(NULL);
 
   if(bpath->dir) {
-    aFile = (boxfile *) malloc(sizeof(boxfile));
-    aFile->name = strdup(bpath->base);
-    aFile->size = 0;
-    aFile->id = NULL;
-    aFile->ctime = now;
-    aFile->mtime = now;
-	LOCKDIR(bpath->dir);
-    xmlListPushBack(bpath->dir->files,aFile);
+    aFile = boxfile_create(bpath->base);
+    LOCKDIR(bpath->dir);
+    list_append(bpath->dir->files,aFile);
     UNLOCKDIR(bpath->dir);
-    boxpath_free(bpath);
   } else {
     syslog(LOG_WARNING, "UH oh... wrong path %s",path);
     res = -ENOTDIR;
   }
+  boxpath_free(bpath);
   
   return res;
 }
@@ -337,30 +326,20 @@ int get_tree() {
   return res;
 }
 
-int walk_setid(boxfile * aFile, boxfile * info)
-{
-  if(!strcmp(aFile->name,info->name)) {
-    aFile->id = info->id;
-    aFile->size = info->size;
-    return 0;
-  }
-
-  return 1;
-}
-
 void set_filedata(const boxpath * bpath, char * fid, long fsize)
 {
   boxfile * aFile;
+  list_iter it = list_get_iter(bpath->dir->files);
 
-  aFile = (boxfile *) malloc(sizeof(boxfile));
-  aFile->name = bpath->base;
-  aFile->id = fid;
-  aFile->size = fsize;
-  aFile->mtime = time(NULL);
-  xmlListWalk(bpath->dir->files,(xmlListWalker)walk_setid,aFile);
-  free(aFile);
+  for(; it; it = list_iter_next(it)) {
+      aFile = (boxfile*)list_iter_getval(it);
+      if(!strcmp(aFile->name, bpath->base)) {
+          aFile->id = fid;
+          aFile->size = fsize;
+          return;
+      }
+  }
 }
-
 
 int api_open(const char * path, const char * pfile){
   int res = 0;
@@ -371,29 +350,24 @@ int api_open(const char * path, const char * pfile){
   if(!res) {
     sprintf(gkurl, "%s" API_DOWNLOAD "%s/%s", proto, auth_token, bpath->file->id);
     res = http_fetch_file(gkurl, pfile);
+    //NOTE: we could check for bpath->file->size > PART_LEN, but
+    //checking filesize is more robust, since PART_LEN may change in
+    //future, or become configurable.
+    if(options.splitfiles && bpath->file->size < filesize(pfile)) {
+        //TODO: handle download of other parts
+    }
   }
   
   boxpath_free(bpath);  
   return res;
 }
 
-typedef struct filldata_t {
-  fuse_fill_dir_t filler;
-  void * buf;
-} filldata;
-
-int walk_filler (boxfile * file, filldata * data)
-{
-  data->filler(data->buf, file->name, NULL, 0);
-    
-  return 1;
-}
-
 int api_readdir(const char * path, fuse_fill_dir_t filler, void * buf)
 {
   int res = 0;
   boxdir * dir;
-  filldata * data = NULL;
+  boxfile * aFile;
+  list_iter it;
   
   dir = (boxdir *) xmlHashLookup(allDirs,path);
   if (dir==NULL) return -EINVAL;
@@ -401,15 +375,16 @@ int api_readdir(const char * path, fuse_fill_dir_t filler, void * buf)
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
 
-  data = (filldata *) malloc(sizeof(filldata));
-  data->buf = buf;
-  data->filler = filler;
   LOCKDIR(dir);
-  xmlListWalk(dir->folders,(xmlListWalker)walk_filler,data);
-  xmlListWalk(dir->files, (xmlListWalker)walk_filler,data);
+  for(it=list_get_iter(dir->folders); it; it = list_iter_next(it)) {
+      aFile = (boxfile*)list_iter_getval(it);
+      filler(buf, aFile->name, NULL, 0);
+  }
+  for(it=list_get_iter(dir->files); it; it = list_iter_next(it)) {
+      aFile = (boxfile*)list_iter_getval(it);
+      filler(buf, aFile->name, NULL, 0);
+  }
   UNLOCKDIR(dir);
-
-  free(data);
 
   return res;
 }
@@ -421,7 +396,7 @@ int api_subdirs(const char * path)
   dir = (boxdir *) xmlHashLookup(allDirs,path);
   if (dir==NULL) return -1;
 
-  return xmlListSize(dir->folders);
+  return list_size(dir->folders);
 }  
 
 int api_getattr(const char *path, struct stat *stbuf)
@@ -532,11 +507,10 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 	  res = -EINVAL;
 	} else {
 	    boxpath_removefile(bsrc);
-	    
-		LOCKDIR(bdst->dir);
-		xmlListPushBack((bsrc->is_dir ? bdst->dir->folders : bdst->dir->files),
+            LOCKDIR(bdst->dir);
+            list_append((bsrc->is_dir ? bdst->dir->folders : bdst->dir->files),
 		  bsrc->file);
-		UNLOCKDIR(bdst->dir);
+            UNLOCKDIR(bdst->dir);
 	}
 	UNLOCKDIR(bsrc->dir);
 	
@@ -591,19 +565,48 @@ int api_rename_v2(const char * from, const char * to)
 void api_upload(const char * path, const char * tmpfile)
 {
   postdata_t buf = post_init();
-  char * res = NULL;
+  char * res = NULL, * pr = NULL, * partname="";
   char gkurl[512];
   char * fid;
   long fsize;
+  size_t start, len;
+  boxfile * aFile = NULL;
   boxpath * bpath = boxpath_from_string(path);
 
   if(bpath->dir) {
     sprintf(gkurl, "%s" API_UPLOAD "%s/%s", proto, auth_token, bpath->dir->id);
     fsize = filesize(tmpfile);
-    if(fsize) {
+    if(options.splitfiles && fsize > PART_LEN) {
+        post_addfile_part(buf, bpath->base, tmpfile, 0, PART_LEN);
+        res = http_postfile(gkurl, buf);
+        fid = attr_value(res,"id");
+        if(fid) set_filedata(bpath ,fid, fsize);
+        free(res);
+        start = PART_LEN;
+        while(start < fsize-1) {
+            post_free(buf); buf = post_init();
+
+            partname = (char*) malloc(strlen(bpath->base)+PART_SUFFIX_LEN+4);
+            sprintf(partname, "%s.%.2d%s", bpath->base, start/PART_LEN, PART_SUFFIX);
+
+            if(options.verbose) syslog(LOG_DEBUG, "Uploading file part %s", partname);
+            len = MIN(PART_LEN, fsize-start);
+            pr = post_addfile_part(buf, partname, tmpfile, start, len);
+            res = http_postfile(gkurl, buf);
+            fid = attr_value(res,"id");
+
+            aFile = boxfile_create(partname);
+            aFile->id=fid;
+	    LOCKDIR(bpath->dir);
+	    list_append(bpath->dir->pieces, aFile);
+            UNLOCKDIR(bpath->dir);
+
+            free(pr); free(res); free(partname);
+            start = start + len;
+        }
+    } else if(fsize) {
       post_addfile(buf, bpath->base, tmpfile);
       res = http_postfile(gkurl, buf);
-      post_free(buf);
       fid = attr_value(res,"id");
       if(fid) set_filedata(bpath ,fid, fsize);
       free(res);
@@ -611,6 +614,7 @@ void api_upload(const char * path, const char * tmpfile)
   } else {
     syslog(LOG_ERR,"Couldn't upload file %s",bpath->base);
   }
+  post_free(buf);
   boxpath_free(bpath);
 }
 

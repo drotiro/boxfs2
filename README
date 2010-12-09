@@ -10,8 +10,8 @@ Compiling
 
 Unpack the source tarball and run make in the resulting dir.
 You need FUSE and libxml2 (most distros come with them installed).
-You can get libxml2 from xmlsoft.org.
-
+See the project wiki for more detailed information:
+<http://code.google.com/p/boxfs/wiki/Compiling> 
 
 Usage
 =====
@@ -24,6 +24,7 @@ Options:
   -p password       box.net password
   -f conffile       file containing configuration options
   -v                turn on verbose syslogging
+  -l                turn on support for large files (splitting)
   -s                turn on secure connections (HTTPS) to box.net
 
 Configuration file example:
@@ -32,6 +33,7 @@ mountpoint = /path/to/folder
 verbose    = no
 secure     = no
 password = secret
+largefiles = yes
 
 Lines beginning with '#' are treated as comments and ignored.
 

@@ -11,6 +11,7 @@
 #include <libxml/hash.h>
 #include <pthread.h>
 #include <time.h>
+#include <libapp/list.h>
 
 #ifndef TRUE
 #define TRUE  1
@@ -20,8 +21,7 @@
 /* Data types */
 typedef struct boxdir_t
 {
-  xmlListPtr folders;
-  xmlListPtr files;
+  list * folders, * files, * pieces;
   char * id;
   pthread_mutex_t * dirmux;
 } boxdir;
@@ -61,6 +61,7 @@ void		boxtree_movedir(const char * from, const char * to);
 
 /* Other utilities */
 boxdir *	boxdir_create();
+boxfile *       boxfile_create(const char * base);
 
 #endif
 //BOXPATH_H

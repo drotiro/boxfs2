@@ -15,6 +15,7 @@ typedef struct box_options_t
     char* mountpoint;
     int	verbose;
     int	secure;
+    int splitfiles;
 } box_options;
 
 extern box_options options;

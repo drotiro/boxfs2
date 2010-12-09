@@ -1,6 +1,8 @@
 #ifndef BOXHTTP_H
 #define BOXHTTP_H
 
+#include <stdio.h>
+
 /* 2010-02-03 Domenico Rotiroti
    Licensed under the GPLv2
 
@@ -24,6 +26,8 @@ int		http_fetch_file(const char * url, const char * dest);
 /* Data POSTing */
 void post_add(postdata_t buf, const char * name, const char * val);
 long post_addfile(postdata_t rbuf, const char * name, const char * tmpfile);
+char * post_addfile_part(postdata_t rbuf, const char * name,
+        const char * tmpfile, size_t offset, size_t len);
 void http_post(const char * url, postdata_t data);
 char * http_postfile(const char * url, postdata_t data);
 

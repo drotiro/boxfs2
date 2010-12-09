@@ -23,6 +23,7 @@ void show_usage (app * this, const char * opt)
             "  -u --username   login       box.net login name\n"
             "  -p --password   password    box.net password\n"
             "  -f              conffile    file containing configuration options\n"
+            "  -l --largefiles             enable support for large files (splitting)\n"
             "  -v --verbose                turn on verbose syslogging\n"
             "  -s --secure                 turn on secure connections (HTTPS) to box.net\n\n"
             "Configuration file example:\n"
@@ -35,7 +36,6 @@ void show_usage (app * this, const char * opt)
 
 int parse_options (int* argc, char*** argv, box_options * options)
 {
-    int c;
     char* pass_file = NULL;
     app * this;
     bool res;
@@ -47,12 +47,13 @@ int parse_options (int* argc, char*** argv, box_options * options)
 		{'f', NULL, OPT_STRING, &pass_file},
 		{'v', "verbose", OPT_FLAG, &options->verbose},
 		{'s', "secure", OPT_FLAG, &options->secure},
+                {'l', "largefiles", OPT_FLAG, &options->splitfiles},
 		{0, "mountpoint", OPT_STRING, &options->mountpoint}
 	};
 
     memset(options, 0, sizeof(options));
     this = app_new();
-    app_opts_add(this, optdef, 7);
+    app_opts_add(this, optdef, 8);
     app_opt_on_error(this, &show_usage);
     res = app_parse_opts(this, argc, argv);
 

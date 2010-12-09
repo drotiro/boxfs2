@@ -9,11 +9,14 @@
 *************************************/
 
 #include "boxpath.h"
+#include "boxapi.h"
+#include "boxopts.h"
 
 #include <string.h>
 #include <libgen.h>
 #include <errno.h>
 #include <syslog.h>
+#include <time.h>
 #include <libxml/list.h>
 
 #define DIR_HASH_SIZE	1001
@@ -25,12 +28,28 @@ boxdir * boxdir_create()
 {
   boxdir * aDir;
   aDir = (boxdir *) malloc(sizeof(boxdir));
-  aDir->files = xmlListCreate(NULL, NULL); // TODO: Deallocator!
-  aDir->folders = xmlListCreate(NULL, NULL);
+  aDir->files = list_new(); // TODO: Deallocator!
+  aDir->folders = list_new();
+  aDir->pieces = list_new();
   aDir->dirmux = malloc(sizeof(pthread_mutex_t));
   pthread_mutex_init(aDir->dirmux, NULL);
   
   return aDir;
+}
+
+boxfile * boxfile_create(const char * base)
+{
+    boxfile * aFile;
+    time_t now = time(NULL);
+    
+    aFile = (boxfile *) malloc(sizeof(boxfile));
+    aFile->name = strdup(base);
+    aFile->size = 0;
+    aFile->id = NULL;
+    aFile->ctime = now;
+    aFile->mtime = now;
+
+    return aFile;
 }
 
 
@@ -46,7 +65,6 @@ boxpath *       boxpath_from_string(const char * path)
 	bpath->is_dir = (xmlHashLookup(allDirs, path)!=NULL);
 
 	free(dir);
-	//free(file); // This crashes boxfs. WHY???
 	return bpath; 
 }
 
@@ -58,50 +76,35 @@ void	boxpath_free(boxpath * bpath)
 }
 
 
-/* boxpath_getfile and helper
-   used to fill boxpath->file data
-*/
-
-int walk_getfile(boxfile * aFile, boxfile ** info)
-{
-  if(!strcmp(aFile->name,(*info)->name)) {
-    free(*info);
-    *info = aFile;
-    return 0;
-  }
-
-  return 1;
-}
-
 int boxpath_getfile(boxpath * bpath)
 {
-	boxfile * aFile = NULL;
+    list_iter it;
+    boxfile * aFile;
 
-	/* check for obvious cases */	
-	if(!bpath) return FALSE;
-	if(bpath->file) return TRUE;
-	/* do the search */
-	aFile = malloc(sizeof(boxfile));
-	aFile->name = bpath->base;
-	aFile->size = -EINVAL;
-	xmlListWalk((bpath->is_dir ? bpath->dir->folders : bpath->dir->files),
-		(xmlListWalker)walk_getfile, &aFile);
-	if(aFile->size!=-EINVAL) {
-		bpath->file = aFile;
-		return TRUE;
-	} else {
-		free(aFile);
-		return FALSE;
-	}
+    /* check for obvious cases */
+    if(!bpath) return FALSE;
+    if(bpath->file) return TRUE;
+
+    it = list_get_iter(bpath->is_dir ? bpath->dir->folders : bpath->dir->files);
+    for(; it; it = list_iter_next(it)) {
+        aFile = (boxfile*)list_iter_getval(it);
+        if(!strcmp(aFile->name, bpath->base)) {
+            bpath->file = aFile;
+            return TRUE;
+        }
+    }
+    return FALSE;
+
 }
 
 int boxpath_removefile(boxpath * bpath)
 {
 	if(!boxpath_getfile(bpath)) return FALSE;
 
-	return xmlListRemoveFirst(
-		bpath->is_dir ? bpath->dir->folders : bpath->dir->files,
+        return list_delete_item(
+                bpath->is_dir ? bpath->dir->folders : bpath->dir->files,
 		bpath->file);
+
 }
 
 int boxpath_renamefile(boxpath * bpath, const char * name)
@@ -111,6 +114,12 @@ int boxpath_renamefile(boxpath * bpath, const char * name)
     bpath->file->name = strdup(name);
 }
 
+
+int filename_comparator(void * p1, void * p2)
+{
+    boxfile * f1 = (boxfile *) p1, * f2 = (boxfile *) p2;
+    return strcmp(f1->name, f2->name);
+}
 
 /* boxtree_setup and helpers
    used at mount time to fill the allDirs hash
@@ -139,7 +148,14 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
           else if(!strcmp(attrs->name,"created")) aFile->ctime = atol(attrs->children->content);
           else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
         }
-        xmlListPushBack(aDir->files,aFile);
+        if(options.splitfiles && ends_with(aFile->name, PART_SUFFIX)) {
+            list_insert_sorted_comp(aDir->pieces, aFile, filename_comparator);
+        } else {
+            list_append(aDir->files,aFile);
+        }
+      }
+      if(options.splitfiles) {
+          //TODO: adjust sizes of files summing up all parts
       }
     } else if(!strcmp(cur_node->name,"folders")) {
       for (cur_dir = cur_node->children; cur_dir; cur_dir = cur_dir->next) {
@@ -153,13 +169,12 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
           else if(!strcmp(attrs->name,"created")) aFile->ctime = atol(attrs->children->content);
           else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
         }
-        xmlListPushBack(aDir->folders,aFile);
+        list_append(aDir->folders,aFile);
 
         newPath = (char *) malloc(plen + strlen(aFile->name) + 2);
         sprintf(newPath, (plen==1 ? "%s%s" : "%s/%s"), path, aFile->name);
         parse_dir(newPath, cur_dir, aFile->id);
         free(newPath);
-        //free(aFile->id); //perché lo disallocavo??
       }
     }
     /* skipping tags & sharing info */
@@ -202,54 +217,34 @@ void boxtree_setup(const char * treefile)
 
 }
 
-typedef struct boxmoveinfo_t
+char * 	pathappend(const char * one, const char * two)
 {
-  const char * from;
-  const char * to;
-} boxmoveinfo;
-
-void 	boxmoveinfo_init(boxmoveinfo * info, const char * from, const char * to)
-{
-  info->from = from;
-  info->to = to;
+  char * res = malloc(strlen(one)+strlen(two)+2);
+  res[0]=0;
+  sprintf(res, "%s/%s", one, two);
+  return res;
 }
-
-int		walk_movedir(boxfile * item, boxmoveinfo * mvinfo);
 
 // Move a dir to another path in the tree,
 // recursively updating all the child entries in allDirs
 void	boxtree_movedir(const char * from, const char * to)
 {
 	boxdir * aDir = xmlHashLookup(allDirs, from);
+        list_iter it;
+        char * newfrom, * newto, *name;
 	if(!aDir) {
 	  syslog(LOG_ERR, "no such directory %s", from);
 	  return;
 	}
-	boxmoveinfo mvinfo;
-	boxmoveinfo_init(&mvinfo, from, to); 
-	xmlListWalk(aDir->folders, (xmlListWalker)walk_movedir, &mvinfo);
+        for (it=list_get_iter(aDir->folders); it; it = list_iter_next(it)) {
+            name = ((boxfile*)list_iter_getval(it))->name;
+            newfrom = pathappend(from, name);
+            newto   = pathappend(to,   name);
+            boxtree_movedir(newfrom, newto);
+            free(newfrom); free(newto);
+        }
 	//LOCKDIR(aDir);
 	xmlHashRemoveEntry(allDirs, from, NULL);
 	xmlHashAddEntry(allDirs, to, aDir);
 	//UNLOCKDIR(aDir);
 }
-
-char * 	pathappend(const char * one, const char * two)
-{
-  char * res = malloc(strlen(one)+strlen(two)+2);
-  res[0]=0;
-  strcat(res, one);
-  strcat(res, "/");
-  strcat(res, two);
-  return res;
-}
-
-int		walk_movedir(boxfile * item, boxmoveinfo * info)
-{
-    char * newfrom	= pathappend(info->from, item->name);
-    char * newto	= pathappend(info->to,	 item->name);
-    boxtree_movedir(newfrom, newto);
-    free(newfrom); free(newto);
-    return 1;
-}
-
