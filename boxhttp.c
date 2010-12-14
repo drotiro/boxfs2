@@ -58,7 +58,7 @@ char * http_fetch(const char * url)
   return data;
 }
 
-int http_fetch_file(const char * url, const char * dest)
+int http_fetch_file(const char * url, const char * dest, int append)
 {
   CURL *curl;
   CURLcode res = -1;
@@ -68,7 +68,7 @@ int http_fetch_file(const char * url, const char * dest)
   curl = curl_easy_init();
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    fout = fopen(dest,"w");
+    fout = fopen(dest, append ? "a": "w");
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fout);
     res = curl_easy_perform(curl);
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &dt);

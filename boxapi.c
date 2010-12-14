@@ -321,7 +321,7 @@ int get_tree() {
   sprintf(gkurl, "%s" API_GET_ACCOUNT_TREE "%s", proto, auth_token);
   fd = mkstemp(treefile);
   if(fd!=-1) close(fd);
-  res = http_fetch_file(gkurl,treefile);
+  res = http_fetch_file(gkurl, treefile, FALSE);
 
   return res;
 }
@@ -344,17 +344,37 @@ void set_filedata(const boxpath * bpath, char * fid, long fsize)
 int api_open(const char * path, const char * pfile){
   int res = 0;
   char gkurl[512]="";
+  char * name = NULL;
+  boxfile * aFile;
+  list_iter it;
   boxpath * bpath = boxpath_from_string(path);
+
   if(!boxpath_getfile(bpath)) res = -ENOENT;
   
   if(!res) {
     sprintf(gkurl, "%s" API_DOWNLOAD "%s/%s", proto, auth_token, bpath->file->id);
-    res = http_fetch_file(gkurl, pfile);
+    res = http_fetch_file(gkurl, pfile, FALSE);
     //NOTE: we could check for bpath->file->size > PART_LEN, but
     //checking filesize is more robust, since PART_LEN may change in
     //future, or become configurable.
-    if(options.splitfiles && bpath->file->size < filesize(pfile)) {
-        //TODO: handle download of other parts
+    if(!res && options.splitfiles && bpath->file->size > filesize(pfile)) {
+        //download of other parts
+        it=list_get_iter(bpath->dir->pieces);
+        if(it) name = ((boxfile*)list_iter_getval(it))->name;
+
+        //skip previous files (it's a sorted list)
+        while(it && !strncmp(bpath->file->name, name, strlen(name))) {
+        	it=list_iter_next(it);
+			if(it) name = ((boxfile*)list_iter_getval(it))->name;
+        }
+        //process the parts
+        for(; it ; it=list_iter_next(it)) {
+            aFile = (boxfile*) list_iter_getval(it);
+            if(strcmp(bpath->file->name, aFile->name)>0) break;
+            sprintf(gkurl, "%s" API_DOWNLOAD "%s/%s", proto, auth_token, aFile->id);
+            if(options.verbose) syslog(LOG_DEBUG, "Appending file part %s", aFile->name);
+            http_fetch_file(gkurl, pfile, TRUE);
+        }
     }
   }
   

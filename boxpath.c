@@ -114,25 +114,34 @@ int boxpath_renamefile(boxpath * bpath, const char * name)
     bpath->file->name = strdup(name);
 }
 
+/* boxtree_setup and helpers
+   used at mount time to fill the allDirs hash
+*/
+void find_file_for_part(const char * pname, list_iter * it)
+{
+    boxfile  * f;
+    while(*it) {
+        f = (boxfile*) list_iter_getval(*it);
+        if(!strncmp(f->name, pname, strlen(f->name))) break;
+        *it = list_iter_next(*it);
+    }
+}
 
-int filename_comparator(void * p1, void * p2)
+int filename_compare(void * p1, void * p2)
 {
     boxfile * f1 = (boxfile *) p1, * f2 = (boxfile *) p2;
     return strcmp(f1->name, f2->name);
 }
-
-/* boxtree_setup and helpers
-   used at mount time to fill the allDirs hash
-*/
 
 void parse_dir(const char * path, xmlNode * node, const char * id)
 {
   xmlNodePtr cur_node, cur_file, cur_dir;
   xmlAttrPtr attrs;
   boxdir * aDir;
-  boxfile * aFile;
+  boxfile * aFile, * part;
   char * newPath;
   int plen = strlen(path);
+  list_iter it, pit;
 
   aDir = boxdir_create();
 
@@ -149,13 +158,25 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
           else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
         }
         if(options.splitfiles && ends_with(aFile->name, PART_SUFFIX)) {
-            list_insert_sorted_comp(aDir->pieces, aFile, filename_comparator);
+            list_insert_sorted_comp(aDir->pieces, aFile, filename_compare);
         } else {
             list_append(aDir->files,aFile);
         }
       }
       if(options.splitfiles) {
-          //TODO: adjust sizes of files summing up all parts
+        it = list_get_iter(aDir->files);
+        pit = list_get_iter(aDir->pieces);
+        for(; pit; pit = list_iter_next(pit)) {
+            part = (boxfile*)list_iter_getval(pit);
+            find_file_for_part(part->name, &it);
+            if(it) {
+                aFile = (boxfile*)list_iter_getval(it);
+                aFile->size+=part->size;
+            } else {
+                syslog(LOG_WARNING, "Stale file part %s found", part->name );
+                it = list_get_iter(aDir->files);
+            }
+        }
       }
     } else if(!strcmp(cur_node->name,"folders")) {
       for (cur_dir = cur_node->children; cur_dir; cur_dir = cur_dir->next) {

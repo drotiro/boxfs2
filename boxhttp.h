@@ -2,6 +2,7 @@
 #define BOXHTTP_H
 
 #include <stdio.h>
+#include "boxapi.h"
 
 /* 2010-02-03 Domenico Rotiroti
    Licensed under the GPLv2
@@ -21,7 +22,7 @@ void		post_free(postdata_t postdata);
 
 /* Fetching (GET) of pages and files */
 char *	http_fetch(const char * url);
-int		http_fetch_file(const char * url, const char * dest);
+int	http_fetch_file(const char * url, const char * dest, int append);
 
 /* Data POSTing */
 void post_add(postdata_t buf, const char * name, const char * val);
