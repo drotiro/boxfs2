@@ -9,7 +9,8 @@ Compiling
 =========
 
 Unpack the source tarball and run make in the resulting dir.
-You need FUSE and libxml2 (most distros come with them installed).
+You need FUSE and libxml2 (most distros come with them installed),
+libzip and libapp.
 See the project wiki for more detailed information:
 <http://code.google.com/p/boxfs/wiki/Compiling> 
 

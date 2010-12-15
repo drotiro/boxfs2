@@ -42,8 +42,9 @@
 #define API_LOGIN_URL "https://www.box.net/api/1.0/auth/"
 #define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
 #define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
-#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%%5B%%5D=nozip&folder_id=0" \
-        API_TOKEN
+//#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%%5B%%5D=nozip&folder_id=0" \
+//        API_TOKEN
+#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&folder_id=0" API_TOKEN
 #define API_GET_ACCOUNT_TREE_OK "listing_ok"
 #define API_DOWNLOAD "://www.box.net/api/1.0/download/"
 #define API_UPLOAD "://upload.box.net/api/1.0/upload/"

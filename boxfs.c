@@ -35,7 +35,6 @@ static int box_access(const char *path, int mask)
 static int box_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi)
 {
-    //fprintf(stderr, "*** readdir for %s\n",path);
     return api_readdir(path,filler,buf);
 }
 
@@ -122,9 +121,7 @@ static int box_create(const char * path, mode_t mode, struct fuse_file_info * fi
       
     lpeer = strdup("/tmp/bUfXXXXXX");
     fd = mkstemp(lpeer);
-    //fprintf(stderr,"DEBUG: creating %s for path %s\n",lpeer, path);
         
-    //fd = open(lpeer, O_CREAT);
     if (fd == -1){
 	free(lpeer);
 	return -errno;
@@ -186,6 +183,11 @@ static int box_statfs(const char *path, struct statvfs *stbuf)
     return 0;
 }
 
+/*
+ * Fuse operations for boxfs.
+ * Most box_* functions just wrap their corresponding 'api_'
+ * converting parameters and/or performing local I/O.
+ */
 static struct fuse_operations box_oper = {
     .getattr	= api_getattr,
     .access	= box_access,

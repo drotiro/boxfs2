@@ -218,24 +218,107 @@ void setup_root_dir(xmlNode * cur_node) {
 	}
 }
 
+/*
+ * Helpers for base64 and deflate decoding
+ * base64 decoder adapted from a PD implementation
+ * found on the net.
+ */
+char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+inline char decode(char q)
+{
+        return strchr(b64chars, q) - b64chars;
+}
+
+int base64_decode(char *src, char * dst)
+{
+  int x, y = 0;
+  int len;
+  char triple[3];
+  char quad[4];
+
+  len = strlen(src);
+  if(src[len-2]=='=') src[len-2]='A';
+  if(src[len-1]=='=') src[len-1]='A';
+  for(x = 0; x < len; x += 4)
+    {
+          while(src[x]=='\r' || src[x]=='\n') ++x; //skip eol
+      memset(quad, 0, 4);
+      memcpy(quad, &src[x], (len - x) >= 4 ? 4 : len - x );
+
+      quad[0] = decode(quad[0]);
+      quad[1] = decode(quad[1]);
+      quad[2] = decode(quad[2]);
+      quad[3] = decode(quad[3]);
+      triple[0] = (quad[0] << 2) | quad[1] >> 4;
+      triple[1] = ((quad[1] << 4) & 0xF0) | quad[2] >> 2;
+      triple[2] = ((quad[2] << 6) & 0xC0) | quad[3];
+      memcpy(&dst[y], triple, 3);
+      y += 3;
+    }
+
+  return y;
+}
+
+int unzip_first(const char * fname, char * dest)
+{
+    struct zip * z;
+    struct zip_file * zf;
+    char buf[16384], *dp = dest;
+    int br;
+
+    z = (struct zip *) zip_open(fname, 0, NULL);
+    zf = (struct zip_file *) zip_fopen_index(z, 0, 0);
+    while(br = zip_fread(zf, buf, sizeof(buf)))
+    {
+        memcpy(dp, buf, br);
+        dp+=br;
+    }
+    zip_fclose(zf);
+    zip_close(z);
+    *dp=0;
+    return (dp-dest);
+}
+/*   */
+
 void boxtree_setup(const char * treefile)
 {
   xmlDoc *doc = NULL;
   xmlNode *root_element = NULL;
   xmlNode *cur_node = NULL;
+  char * tree_decoded, * tree_encoded, * tree_xml;
+  long tlen, zlen, zres;
+  FILE * tf;
 
   allDirs = xmlHashCreate(DIR_HASH_SIZE);
   doc = xmlParseFile(treefile);
   root_element = xmlDocGetRootElement(doc);
-  // raggiungiamo il nodo response--->tree->folder
+  /* 
+   * let's go to /response/tree node
+   * it's a base64 encoded ziparchive
+   */
   cur_node = root_element->children;
   while(strcmp(cur_node->name,"tree")) cur_node = cur_node->next; //skip status
-  cur_node = cur_node->children;
+  tree_encoded = cur_node->children->content;
+  tree_decoded = malloc(strlen(tree_encoded)+1);
+  zlen = base64_decode(tree_encoded, tree_decoded);
+  xmlFreeDoc(doc);
+  //save the zip 'cause zip_open wants a file
+  tf = fopen(treefile, "w");
+  fwrite(tree_decoded, 1, zlen, tf);
+  fclose(tf);
+  free(tree_decoded);
+  //unzip the tree to memory
+  tlen = zlen*15;
+  tree_xml = malloc(tlen);
+  unzip_first(treefile, tree_xml);
+  doc = xmlParseDoc(tree_xml);
+  cur_node = xmlDocGetRootElement(doc);
   setup_root_dir(cur_node);
   parse_dir("/",cur_node,"0");
 
   xmlFreeDoc(doc);
-
+  free(tree_xml);
 }
 
 char * 	pathappend(const char * one, const char * two)
