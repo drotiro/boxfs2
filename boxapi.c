@@ -477,38 +477,73 @@ int api_removedir(const char * path)
   return res;
 }
 
+/*
+ * Internal func to call the delete api on a file id.
+ * api_removefile will call it several times if
+ * splitfiles is on and the file has parts
+ */
+int api_removefile_id(const char * id)
+{
+	int res = 0;
+	char gkurl[512];
+	char *buf, *status;
+	
+	sprintf(gkurl, "%s" API_UNLINK "%s&target_id=%s", proto, auth_token, id);
+	buf = http_fetch(gkurl);
+	status = node_value(buf,"status");
+	if(strcmp(status,API_UNLINK_OK)) res = -ENOENT;
+	
+	free(status);
+	free(buf);
+	return res;
+}
+
 int api_removefile(const char * path)
 {
-  int res = 0;
-  boxpath * bpath = boxpath_from_string(path);
-  char gkurl[512];
-  char *buf, *status;
+	int res = 0;
+	boxpath * bpath = boxpath_from_string(path);
+	char gkurl[512];
+	char *buf, *status;
 
-  if(!bpath->dir) res = -ENOENT;
-  else {
-    
-    //remove it from box.net
-    boxpath_getfile(bpath);
-    sprintf(gkurl, "%s" API_UNLINK "%s&target_id=%s", proto, auth_token,
-      bpath->file->id);
-    buf = http_fetch(gkurl);
-    status = node_value(buf,"status");
-    if(strcmp(status,API_UNLINK_OK)) {
-      res = -ENOENT;
-    }
-    free(status);
-    free(buf);
+	if(!bpath->dir) res = -ENOENT;
+	else {
+		//remove it from box.net
+		boxpath_getfile(bpath);
+		api_removefile_id(bpath->file->id);
 
-    //remove it from the list
-    if(res==0) {
-	  LOCKDIR(bpath->dir);
-	  boxpath_removefile(bpath);
-	  UNLOCKDIR(bpath->dir);
-    }
-  }
-  boxpath_free(bpath);
+		if(res==0) {
+			if(options.splitfiles && list_size(bpath->dir->pieces)) {
+				list_iter prev,cur;
+				boxfile * part;
 
-  return res;
+				//find first part
+				cur = list_get_iter(bpath->dir->pieces);
+				while(cur && 
+					(filename_compare(bpath->file, list_iter_getval(cur)) > 0) ) 
+						cur = list_iter_next(cur);
+				//remove parts
+				for(; cur; ) {
+					part = (boxfile*) list_iter_getval(cur);
+					if(!strncmp(bpath->file->name, part->name, 
+						strlen(bpath->file->name))) {
+						if (options.verbose) 
+							syslog(LOG_DEBUG, "removing part %s", part->name);
+						api_removefile_id(part->id);
+						prev = cur; cur = list_iter_next(cur);
+						list_delete_item(bpath->dir->pieces, part);
+					} else break;
+				}
+			}
+
+			//remove it from the list
+			LOCKDIR(bpath->dir);
+			boxpath_removefile(bpath);
+			UNLOCKDIR(bpath->dir);
+		}
+	}
+	
+	boxpath_free(bpath);
+	return res;
 }
 
 //Move and rename funcs, new version
@@ -591,12 +626,19 @@ void api_upload(const char * path, const char * tmpfile)
   char * fid;
   long fsize;
   size_t start, len;
+  int oldver;
   boxfile * aFile = NULL;
   boxpath * bpath = boxpath_from_string(path);
 
   if(bpath->dir) {
     sprintf(gkurl, "%s" API_UPLOAD "%s/%s", proto, auth_token, bpath->dir->id);
     fsize = filesize(tmpfile);
+    oldver = boxpath_getfile(bpath);
+    //if there was an older version of the file with parts, remove them
+    if(options.splitfiles && oldver && (bpath->file->size > PART_LEN)) {
+    	api_removefile(path);
+    }
+    //upload file in parts if needed
     if(options.splitfiles && fsize > PART_LEN) {
         post_addfile_part(buf, bpath->base, tmpfile, 0, PART_LEN);
         res = http_postfile(gkurl, buf);
@@ -626,11 +668,12 @@ void api_upload(const char * path, const char * tmpfile)
             start = start + len;
         }
     } else if(fsize) {
-      post_addfile(buf, bpath->base, tmpfile);
-      res = http_postfile(gkurl, buf);
-      fid = attr_value(res,"id");
-      if(fid) set_filedata(bpath ,fid, fsize);
-      free(res);
+    	//normal upload
+    	post_addfile(buf, bpath->base, tmpfile);
+    	res = http_postfile(gkurl, buf);
+	    fid = attr_value(res,"id");
+	    if(fid) set_filedata(bpath ,fid, fsize);
+	    free(res);
     }
   } else {
     syslog(LOG_ERR,"Couldn't upload file %s",bpath->base);
