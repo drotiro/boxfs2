@@ -55,6 +55,10 @@ int 		boxpath_getfile(boxpath * bpath);
 int		boxpath_removefile(boxpath * bpath);
 int		boxpath_renamefile(boxpath * bpath, const char * newname);
 
+/* Large files */
+list_iter	boxpath_first_part(boxpath * bpath);
+list_iter	boxpath_next_part(boxpath * bpath, list_iter it);
+
 /* Tree handling */
 void 		boxtree_setup(const char * treefile);
 void		boxtree_movedir(const char * from, const char * to);
@@ -62,6 +66,7 @@ void		boxtree_movedir(const char * from, const char * to);
 /* Other utilities */
 boxdir *	boxdir_create();
 boxfile *       boxfile_create(const char * base);
+int filename_compare(void * p1, void * p2); //comparator for list of boxfile*
 
 #endif
 //BOXPATH_H

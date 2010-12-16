@@ -360,18 +360,8 @@ int api_open(const char * path, const char * pfile){
     //future, or become configurable.
     if(!res && options.splitfiles && bpath->file->size > filesize(pfile)) {
         //download of other parts
-        it=list_get_iter(bpath->dir->pieces);
-        if(it) name = ((boxfile*)list_iter_getval(it))->name;
-
-        //skip previous files (it's a sorted list)
-        while(it && !strncmp(bpath->file->name, name, strlen(name))) {
-        	it=list_iter_next(it);
-			if(it) name = ((boxfile*)list_iter_getval(it))->name;
-        }
-        //process the parts
-        for(; it ; it=list_iter_next(it)) {
+        for(it = boxpath_first_part(bpath); it ; it=boxpath_next_part(bpath, it)) {
             aFile = (boxfile*) list_iter_getval(it);
-            if(strcmp(bpath->file->name, aFile->name)>0) break;
             sprintf(gkurl, "%s" API_DOWNLOAD "%s/%s", proto, auth_token, aFile->id);
             if(options.verbose) syslog(LOG_DEBUG, "Appending file part %s", aFile->name);
             http_fetch_file(gkurl, pfile, TRUE);
@@ -482,7 +472,7 @@ int api_removedir(const char * path)
  * api_removefile will call it several times if
  * splitfiles is on and the file has parts
  */
-int api_removefile_id(const char * id)
+int do_removefile_id(const char * id)
 {
 	int res = 0;
 	char gkurl[512];
@@ -509,29 +499,20 @@ int api_removefile(const char * path)
 	else {
 		//remove it from box.net
 		boxpath_getfile(bpath);
-		api_removefile_id(bpath->file->id);
+		do_removefile_id(bpath->file->id);
 
 		if(res==0) {
 			if(options.splitfiles && list_size(bpath->dir->pieces)) {
 				list_iter prev,cur;
 				boxfile * part;
 
-				//find first part
-				cur = list_get_iter(bpath->dir->pieces);
-				while(cur && 
-					(filename_compare(bpath->file, list_iter_getval(cur)) > 0) ) 
-						cur = list_iter_next(cur);
 				//remove parts
-				for(; cur; ) {
+				for(cur = boxpath_first_part(bpath); cur; ) {
 					part = (boxfile*) list_iter_getval(cur);
-					if(!strncmp(bpath->file->name, part->name, 
-						strlen(bpath->file->name))) {
-						if (options.verbose) 
-							syslog(LOG_DEBUG, "removing part %s", part->name);
-						api_removefile_id(part->id);
-						prev = cur; cur = list_iter_next(cur);
-						list_delete_item(bpath->dir->pieces, part);
-					} else break;
+					if (options.verbose) syslog(LOG_DEBUG, "removing part %s", part->name);
+					do_removefile_id(part->id);
+					prev = cur; cur = boxpath_next_part(bpath, cur);
+					list_delete_item(bpath->dir->pieces, part);
 				}
 			}
 
@@ -547,54 +528,105 @@ int api_removefile(const char * path)
 }
 
 //Move and rename funcs, new version
-int do_api_move(boxpath * bsrc, boxpath * bdst)
+int do_api_move_id(int is_dir, const char * srcid, const char * dstid)
 {
 	char * buf = NULL, * status;
 	char gkurl[1024];
 	int res = 0;
 
-	LOCKDIR(bsrc->dir);
 	sprintf(gkurl, "%s" API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
-		  proto, auth_token, (bsrc->is_dir ? "folder" : "file"),
-		  bsrc->file->id, bdst->dir->id);
+		  proto, auth_token, (is_dir ? "folder" : "file"), srcid, dstid);
 	buf = http_fetch(gkurl);
 	status = node_value(buf,"status");
 	if(strcmp(status,API_MOVE_OK)) {
 	  res = -EINVAL;
-	} else {
-	    boxpath_removefile(bsrc);
-            LOCKDIR(bdst->dir);
-            list_append((bsrc->is_dir ? bdst->dir->folders : bdst->dir->files),
-		  bsrc->file);
-            UNLOCKDIR(bdst->dir);
+	}
+
+	free(status); free(buf);
+	return res;
+}
+
+int do_api_move(boxpath * bsrc, boxpath * bdst)
+{
+	int res = 0;
+	list_iter it;
+
+	LOCKDIR(bsrc->dir);
+	res = do_api_move_id(bsrc->is_dir, bsrc->file->id, bdst->dir->id);
+	if(!res) {
+		boxfile * part;
+		//take care of parts, if any
+		if(options.splitfiles && !bsrc->is_dir && list_size(bsrc->dir->pieces))
+			for(it = boxpath_first_part(bsrc); it; it = boxpath_next_part(bsrc, it)) {
+				part = (boxfile*)list_iter_getval(it);
+				if(options.verbose) syslog(LOG_DEBUG, "Moving part %s", part->name);
+				do_api_move_id(FALSE, part->id, bdst->dir->id);
+				list_insert_sorted_comp(bdst->dir->pieces, part, filename_compare);
+				list_delete_item(bsrc->dir->pieces, part);				
+			}
+		
+		boxpath_removefile(bsrc);
+		LOCKDIR(bdst->dir);
+		list_append((bsrc->is_dir ? bdst->dir->folders : bdst->dir->files),
+			bsrc->file);
+		UNLOCKDIR(bdst->dir);
 	}
 	UNLOCKDIR(bsrc->dir);
 	
-	free(status);free(buf);
 	return res;
 }
-int do_api_rename(boxpath * bsrc, boxpath * bdst)
+
+int do_api_rename_id(int is_dir, const char * id, const char * base)
 {
 	char * buf = NULL, * status;
 	char gkurl[1024];
 	int res = 0;
 
-	LOCKDIR(bsrc->dir);
 	sprintf(gkurl, "%s" API_RENAME "%s&target=%s&target_id=%s&new_name=%s",
-		  proto, auth_token, (bsrc->is_dir ? "folder" : "file"),
-		  bsrc->file->id, xmlURIEscapeStr(bdst->base,""));
+		  proto, auth_token, (is_dir ? "folder" : "file"),
+		  id, xmlURIEscapeStr(base,""));
 	buf = http_fetch(gkurl);
 	status = node_value(buf,"status");
 	if(strcmp(status,API_RENAME_OK)) {
 		res = -EINVAL;
-	} else {
+	}
+
+	free(status);free(buf);
+	return res;	
+}
+
+int do_api_rename(boxpath * bsrc, boxpath * bdst)
+{
+	int res;
+	
+	LOCKDIR(bsrc->dir);
+	res = do_api_rename_id(bsrc->is_dir, bsrc->file->id, bdst->base);
+	if(!res) {
+		boxfile * part;
+		char * newname;
+		list_iter it, prev;
+		int ind=1;
+		//take care of parts, if any
+		if(options.splitfiles && !bsrc->is_dir && list_size(bsrc->dir->pieces))
+			for(it = boxpath_first_part(bsrc); it; ) {
+				part = (boxfile*)list_iter_getval(it);
+				newname = malloc(strlen(bdst->base)+ PART_SUFFIX_LEN +4);
+				sprintf(newname, "%s.%.2d" PART_SUFFIX, bdst->base, ind++);
+				if(options.verbose) syslog(LOG_DEBUG, "Renaming part %s to %s", part->name, newname);
+				do_api_rename_id(FALSE, part->id, newname);
+				prev = it; it = boxpath_next_part(bsrc, it);
+				list_delete_item(bsrc->dir->pieces, part);
+				part->name = newname;
+				list_insert_sorted_comp(bsrc->dir->pieces, part, filename_compare);
+			}
+
 		boxpath_renamefile(bsrc, bdst->base);
 	}
 	UNLOCKDIR(bsrc->dir);
 
-	free(status);free(buf);
 	return res;
 }
+
 int api_rename_v2(const char * from, const char * to)
 {
 	int res = 0;

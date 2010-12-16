@@ -6,7 +6,7 @@ PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
 boxfs:  $(OBJS)
-	gcc -o $@ $(LIBS) $(OBJS)
+	gcc -o $@ $(OBJS) $(LIBS)
 
 boxapi.o:	boxapi.c boxapi.h boxpath.h boxhttp.h boxopts.h
 boxfs.o:	boxfs.c boxapi.h

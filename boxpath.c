@@ -114,6 +114,39 @@ int boxpath_renamefile(boxpath * bpath, const char * name)
     bpath->file->name = strdup(name);
 }
 
+
+list_iter   boxpath_first_part(boxpath * bpath)
+{
+	list_iter it;
+	boxfile * part;
+	if(!boxpath_getfile(bpath)) return NULL;
+	
+	it = list_get_iter(bpath->dir->pieces);
+	while(it && (filename_compare(bpath->file, list_iter_getval(it)) > 0))
+		it = list_iter_next(it);
+	if(it) {
+		part = (boxfile*) list_iter_getval(it);
+		if(strncmp(bpath->base, part->name, strlen(bpath->base)))
+			return NULL;
+	}
+	
+	return it;
+}
+
+list_iter   boxpath_next_part(boxpath * bpath, list_iter it)
+{
+	boxfile * part;
+	
+	it = list_iter_next(it);
+	if(it) {
+		part = (boxfile*) list_iter_getval(it);
+		if(strncmp(bpath->file->name, part->name, strlen(bpath->file->name)))
+			return NULL;
+	}
+
+	return it;	
+}
+
 /* boxtree_setup and helpers
    used at mount time to fill the allDirs hash
 */
