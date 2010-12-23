@@ -17,7 +17,6 @@
 #include <errno.h>
 #include <syslog.h>
 #include <time.h>
-#include <libxml/list.h>
 
 #define DIR_HASH_SIZE	1001
 
@@ -52,7 +51,6 @@ boxfile * boxfile_create(const char * base)
     return aFile;
 }
 
-
 boxpath *       boxpath_from_string(const char * path)
 {
 	char * dir = dirname(strdup(path));
@@ -74,7 +72,6 @@ void	boxpath_free(boxpath * bpath)
 	if(bpath->base) free(bpath->base);
 	free(bpath);
 }
-
 
 int boxpath_getfile(boxpath * bpath)
 {
@@ -113,7 +110,6 @@ int boxpath_renamefile(boxpath * bpath, const char * name)
     bpath->base = strdup(name);
     bpath->file->name = strdup(name);
 }
-
 
 list_iter   boxpath_first_part(boxpath * bpath)
 {
@@ -320,7 +316,7 @@ void boxtree_setup(const char * treefile)
   xmlNode *root_element = NULL;
   xmlNode *cur_node = NULL;
   char * tree_decoded, * tree_encoded, * tree_xml;
-  long tlen, zlen, zres;
+  long tlen, zlen;
   FILE * tf;
 
   allDirs = xmlHashCreate(DIR_HASH_SIZE);

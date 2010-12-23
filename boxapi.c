@@ -337,7 +337,6 @@ void set_filedata(const boxpath * bpath, char * fid, long fsize)
 int api_open(const char * path, const char * pfile){
   int res = 0;
   char gkurl[512]="";
-  char * name = NULL;
   boxfile * aFile;
   list_iter it;
   boxpath * bpath = boxpath_from_string(path);
@@ -480,7 +479,6 @@ int api_removefile(const char * path)
 {
 	int res = 0;
 	boxpath * bpath = boxpath_from_string(path);
-	char *buf, *status;
 
 	if(!bpath->dir) res = -ENOENT;
 	else {
