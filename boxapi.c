@@ -134,10 +134,8 @@ int ends_with(const char * str, const char * suff)
 void api_logout()
 {
   char * buf;
-  char gkurl[512];
-  
-  sprintf(gkurl,"%s" API_LOGOUT "%s", proto, auth_token);
-  buf = http_fetch(gkurl);
+
+  buf = http_fetchf("%s" API_LOGOUT "%s", proto, auth_token);
   free(buf);
 }
 
@@ -191,9 +189,7 @@ int get_ticket(struct box_options_t* options) {
   postdata_t postpar=post_init();
   char gkurl[512];
   
-  sprintf(gkurl, "%s" API_GET_TICKET, proto);
-  buf = http_fetch(gkurl);
-  gkurl[0] = 0;
+  buf = http_fetchf("%s" API_GET_TICKET, proto);
   status = node_value(buf,"status");
   if(strcmp(status,API_GET_TICKET_OK)) {
     res = 1;
@@ -230,14 +226,12 @@ int api_createdir(const char * path)
   boxdir *newdir;
   boxfile * aFile;
   char * dirid, *buf, *status;
-  char gkurl[512];
 
   bpath = boxpath_from_string(path);
   if(bpath->dir) {
 	//syslog(LOG_WARNING, "creating dir %s (escaped: %s) ",base,xmlURIEscapeStr(base,""));
-    sprintf(gkurl,"%s" API_CREATE_DIR "%s&parent_id=%s&name=%s&share=0", 
+    buf = http_fetchf("%s" API_CREATE_DIR "%s&parent_id=%s&name=%s&share=0", 
           proto, auth_token, bpath->dir->id, xmlURIEscapeStr(bpath->base,""));
-    buf = http_fetch(gkurl);
     status = node_value(buf,"status");
     if(strcmp(status,API_CREATE_DIR_OK)) {
       res = -EINVAL;
@@ -294,10 +288,8 @@ int get_key() {
   int res = 0;
   char * buf = NULL;
   char * status = NULL;
-  char gkurl[256];
 
-  sprintf(gkurl, "%s" API_GET_AUTH_TOKEN "&ticket=%s", proto, ticket);
-  buf = http_fetch(gkurl);
+  buf = http_fetchf("%s" API_GET_AUTH_TOKEN "&ticket=%s", proto, ticket);
   status = node_value(buf,"status");
   if(strcmp(status,API_GET_AUTH_TOKEN_OK)) {
     res = 1;
@@ -441,12 +433,10 @@ int api_removedir(const char * path)
   boxpath * bpath = boxpath_from_string(path);
   if(!boxpath_getfile(bpath)) return -EINVAL;
   
-  char gkurl[512];
   char *buf, *status;
   
   if(!bpath->dir && !bpath->is_dir) return -ENOENT;
-  sprintf(gkurl, "%s" API_RMDIR "%s&target_id=%s", proto, auth_token, bpath->file->id);
-  buf = http_fetch(gkurl);
+  buf = http_fetchf("%s" API_RMDIR "%s&target_id=%s", proto, auth_token, bpath->file->id);
   status = node_value(buf,"status");
   if(strcmp(status,API_UNLINK_OK)) {
     res = -EPERM;
@@ -475,11 +465,9 @@ int api_removedir(const char * path)
 int do_removefile_id(const char * id)
 {
 	int res = 0;
-	char gkurl[512];
 	char *buf, *status;
 	
-	sprintf(gkurl, "%s" API_UNLINK "%s&target_id=%s", proto, auth_token, id);
-	buf = http_fetch(gkurl);
+	buf = http_fetchf("%s" API_UNLINK "%s&target_id=%s", proto, auth_token, id);
 	status = node_value(buf,"status");
 	if(strcmp(status,API_UNLINK_OK)) res = -ENOENT;
 	
@@ -492,7 +480,6 @@ int api_removefile(const char * path)
 {
 	int res = 0;
 	boxpath * bpath = boxpath_from_string(path);
-	char gkurl[512];
 	char *buf, *status;
 
 	if(!bpath->dir) res = -ENOENT;
@@ -531,12 +518,10 @@ int api_removefile(const char * path)
 int do_api_move_id(int is_dir, const char * srcid, const char * dstid)
 {
 	char * buf = NULL, * status;
-	char gkurl[1024];
 	int res = 0;
 
-	sprintf(gkurl, "%s" API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
+	buf = http_fetchf("%s" API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
 		  proto, auth_token, (is_dir ? "folder" : "file"), srcid, dstid);
-	buf = http_fetch(gkurl);
 	status = node_value(buf,"status");
 	if(strcmp(status,API_MOVE_OK)) {
 	  res = -EINVAL;
@@ -579,13 +564,11 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 int do_api_rename_id(int is_dir, const char * id, const char * base)
 {
 	char * buf = NULL, * status;
-	char gkurl[1024];
 	int res = 0;
 
-	sprintf(gkurl, "%s" API_RENAME "%s&target=%s&target_id=%s&new_name=%s",
+	buf = http_fetchf("%s" API_RENAME "%s&target=%s&target_id=%s&new_name=%s",
 		  proto, auth_token, (is_dir ? "folder" : "file"),
 		  id, xmlURIEscapeStr(base,""));
-	buf = http_fetch(gkurl);
 	status = node_value(buf,"status");
 	if(strcmp(status,API_RENAME_OK)) {
 		res = -EINVAL;

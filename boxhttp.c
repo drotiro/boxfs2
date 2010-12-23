@@ -58,6 +58,17 @@ char * http_fetch(const char * url)
   return data;
 }
 
+char *  http_fetchf(const char * fmt, ...)
+{
+	char gkurl[MAXBUF];
+	va_list ap;
+	
+	va_start(ap, fmt);
+	vsprintf(gkurl, fmt, ap);
+	va_end(ap);
+	return http_fetch(gkurl);
+}
+
 int http_fetch_file(const char * url, const char * dest, int append)
 {
   CURL *curl;

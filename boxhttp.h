@@ -2,6 +2,7 @@
 #define BOXHTTP_H
 
 #include <stdio.h>
+#include <stdarg.h>
 #include "boxapi.h"
 
 /* 2010-02-03 Domenico Rotiroti
@@ -22,6 +23,7 @@ void		post_free(postdata_t postdata);
 
 /* Fetching (GET) of pages and files */
 char *	http_fetch(const char * url);
+char *	http_fetchf(const char * fmt, ...);
 int	http_fetch_file(const char * url, const char * dest, int append);
 
 /* Data POSTing */
