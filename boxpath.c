@@ -109,6 +109,7 @@ int boxpath_renamefile(boxpath * bpath, const char * name)
 	if(!boxpath_getfile(bpath)) return FALSE;
     bpath->base = strdup(name);
     bpath->file->name = strdup(name);
+    return TRUE;
 }
 
 list_iter   boxpath_first_part(boxpath * bpath)
