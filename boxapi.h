@@ -34,8 +34,7 @@ int     ends_with(const char * str, const char * suff);
 #define PROTO_HTTPS "https"
 #define PART_SUFFIX "BF#"
 #define PART_SUFFIX_LEN 3
-// DEBUG: PART_LEN should be 20Mb at least!
-#define PART_LEN    (5*1024*1024)
+#define PART_LEN    (20*1024*1024)
 #define MIN(A,B) (A<B ? A : B)
 
 #endif

@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -24,7 +25,7 @@
 
 #include "boxapi.h"
 
-#define CAST_PATH (char*)(int)
+#define CAST_PATH (char*)(ptrdiff_t)
 
 static int box_access(const char *path, int mask)
 {
