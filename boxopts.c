@@ -41,7 +41,7 @@ int parse_options (int* argc, char*** argv, box_options * options)
     app * this;
     bool res;
     FILE * cfile;
-    opt optdef[] = {
+    opt opts[] = {
 		{'H', NULL, OPT_CALLBACK, &show_fuse_usage},
 		{'u', "username", OPT_STRING, &options->user},
 		{'p', "password", OPT_PASSWD, &options->password},
@@ -54,7 +54,7 @@ int parse_options (int* argc, char*** argv, box_options * options)
 
     memset(options, 0, sizeof(options));
     this = app_new();
-    app_opts_add(this, optdef, 8);
+    app_opts_add(this, opts, sizeof(opts)/sizeof(opts[0]));
     app_opt_on_error(this, &show_usage);
     res = app_parse_opts(this, argc, argv);
 
@@ -88,7 +88,8 @@ int parse_options (int* argc, char*** argv, box_options * options)
 			options->password = app_term_askpass("Password:");
 		}
 
-		args[1] = options->mountpoint ? options->mountpoint : *argv[0];
+		if(!options->mountpoint) options->mountpoint = *argv[0];
+		args[1] = options->mountpoint;
 		*argc = 2;
 		*argv = args;
 	}	
