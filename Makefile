@@ -1,12 +1,13 @@
 PKGS = fuse libxml-2.0 libcurl
-FLAGS = `pkg-config ${PKGS} --cflags` -g ${CFLAGS}
-LIBS = `pkg-config ${PKGS} --libs` -lapp -lzip
+FLAGS = $(shell pkg-config ${PKGS} --cflags) -g ${CFLAGS}
+LIBS = $(shell pkg-config ${PKGS} --libs) -lapp -lzip
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
 boxfs:  $(OBJS)
-	gcc -o $@ $(OBJS) $(LIBS)
+	@echo "Building  $@"
+	@gcc -o $@ $(OBJS) $(LIBS)
 
 boxapi.o:	boxapi.c boxapi.h boxpath.h boxhttp.h boxopts.h
 boxfs.o:	boxfs.c boxapi.h
@@ -15,7 +16,8 @@ boxhttp.o:	boxhttp.c boxhttp.h boxopts.h
 boxopts.o:	boxopts.c boxopts.h
 
 .c.o:
-	gcc $(FLAGS) -c $< -o $@
+	@echo Compiling $<
+	@gcc $(FLAGS) -c $< -o $@
 
 .PHONY: clean install 
 	
