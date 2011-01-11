@@ -1,6 +1,6 @@
-PKGS = fuse libxml-2.0 libcurl
+PKGS = fuse libxml-2.0 libcurl libzip
 FLAGS = $(shell pkg-config ${PKGS} --cflags) -g ${CFLAGS}
-LIBS = $(shell pkg-config ${PKGS} --libs) -lapp -lzip
+LIBS = $(shell pkg-config ${PKGS} --libs) -lapp
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin

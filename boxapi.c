@@ -663,7 +663,7 @@ void api_upload(const char * path, const char * tmpfile)
             post_free(buf); buf = post_init();
 
             partname = (char*) malloc(strlen(bpath->base)+PART_SUFFIX_LEN+4);
-            sprintf(partname, "%s.%.2d%s", bpath->base, start/PART_LEN, PART_SUFFIX);
+            sprintf(partname, "%s.%.2d%s", bpath->base, (int)(start/PART_LEN), PART_SUFFIX);
 
             if(options.verbose) syslog(LOG_DEBUG, "Uploading file part %s", partname);
             len = MIN(PART_LEN, fsize-start);

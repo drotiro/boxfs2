@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <syslog.h>
 #include <time.h>
+#include <zip.h>
 
 #define DIR_HASH_SIZE	1001
 
