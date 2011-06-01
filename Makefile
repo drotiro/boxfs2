@@ -7,7 +7,7 @@ BINDIR = $(PREFIX)/bin
 
 boxfs:  $(OBJS)
 	@echo "Building  $@"
-	@gcc -o $@ $(OBJS) $(LIBS)
+	$(CC) $(FLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 boxapi.o:	boxapi.c boxapi.h boxpath.h boxhttp.h boxopts.h
 boxfs.o:	boxfs.c boxapi.h
@@ -17,7 +17,7 @@ boxopts.o:	boxopts.c boxopts.h
 
 .c.o:
 	@echo Compiling $<
-	@gcc $(FLAGS) -c $< -o $@
+	$(CC) $(FLAGS) -c $< -o $@
 
 .PHONY: clean install 
 	
