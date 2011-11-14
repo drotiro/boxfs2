@@ -42,8 +42,6 @@
 #define API_LOGIN_URL "https://www.box.net/api/1.0/auth/"
 #define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
 #define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
-//#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&params%%5B%%5D=nozip&folder_id=0" \
-//        API_TOKEN
 #define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&folder_id=0" API_TOKEN
 #define API_GET_ACCOUNT_TREE_OK "listing_ok"
 #define API_DOWNLOAD "://www.box.net/api/1.0/download/"
@@ -59,6 +57,8 @@
 #define API_RMDIR API_REST_BASE "delete&target=folder" API_TOKEN
 #define API_RMDIR_OK API_UNLINK_OK 
 #define API_LOGOUT API_REST_BASE "logout" API_KEY "&auth_token="
+#define API_GET_ACCOUNT_INFO API_REST_BASE "get_account_info" API_TOKEN
+#define API_GET_ACCOUNT_INFO_OK "get_account_info_ok"
 
 #define LOCKDIR(dir) pthread_mutex_lock(dir->dirmux);
 #define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); 
@@ -66,7 +66,7 @@
 /* globals, written during initialization */
 char *ticket = NULL, *auth_token = NULL;
 char treefile[] = "/tmp/boxXXXXXX";
-long tot_space, used_space;
+long long tot_space, used_space;
 struct box_options_t options;
 char * proto = PROTO_HTTP;
 
@@ -93,13 +93,13 @@ char * tag_value(const char * buf, const char * tag)
 }
 
 
-long tag_lvalue(const char * buf, const char * tag)
+long long tag_lvalue(const char * buf, const char * tag)
 {
   char * tmp;
-  long rv;
+  long long rv;
   
   tmp = tag_value(buf, tag);
-  rv = atol(tmp);
+  rv = atoll(tmp);
   free(tmp);
   
   return rv;  
@@ -213,7 +213,28 @@ int get_ticket(struct box_options_t* options) {
   return res;
 }
 
-void api_getusage(long * tot_sp, long * used_sp)
+int get_account_info() {
+  int res = 0;
+  char * buf = NULL;
+  char * status = NULL;
+
+  buf = http_fetchf("%s" API_GET_ACCOUNT_INFO "%s", proto, auth_token);
+  status = node_value(buf,"status");
+  if(strcmp(status,API_GET_ACCOUNT_INFO_OK)) {
+    res = 1;
+  }
+  if(!res) {
+    tot_space = tag_lvalue(buf,"space_amount");
+    used_space = tag_lvalue(buf,"space_used");
+  }
+
+  if(buf) free(buf);
+  if(status) free(status);
+
+  return res;
+}
+
+void api_getusage(long long * tot_sp, long long * used_sp)
 {
   *tot_sp = tot_space;
   *used_sp = used_space;
@@ -296,6 +317,7 @@ int get_key() {
   }
   if(!res) {
     auth_token = node_value(buf,"auth_token");
+    //at mount time, we can avoid calling get_account_info
     tot_space = tag_lvalue(buf,"space_amount");
     used_space = tag_lvalue(buf,"space_used");
   }
@@ -319,7 +341,7 @@ int get_tree() {
   return res;
 }
 
-void set_filedata(const boxpath * bpath, char * fid, long fsize)
+void set_filedata(const boxpath * bpath, char * fid, long long fsize)
 {
   boxfile * aFile;
   list_iter it = list_get_iter(bpath->dir->files);
@@ -509,6 +531,7 @@ int api_removefile(const char * path)
 	}
 	
 	boxpath_free(bpath);
+	get_account_info();
 	return res;
 }
 
@@ -637,7 +660,7 @@ void api_upload(const char * path, const char * tmpfile)
   char * res = NULL, * pr = NULL, * partname="";
   char gkurl[512];
   char * fid;
-  long fsize;
+  off_t fsize;
   size_t start, len;
   int oldver;
   boxfile * aFile = NULL;
@@ -693,6 +716,7 @@ void api_upload(const char * path, const char * tmpfile)
   }
   post_free(buf);
   boxpath_free(bpath);
+  get_account_info();
 }
 
 
@@ -731,3 +755,4 @@ int api_init(int* argc, char*** argv) {
   }
   return res;
 }
+

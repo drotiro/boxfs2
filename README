@@ -45,7 +45,14 @@ The mountpoint must be provided, after the other options or in the configuration
 When you've done using your files, unmount your filsystem
 with fusermount -u mountpoint
 
+Authors and Contributors
+========================
 
+Boxfs is written by Domenico Rotiroti <pinguino(@)thesaguaros.com> with
+contributions from:
+* Alexander Gromnitsky
+* Laurento Frittella
+* Wei-Ren Huang
 
 Known problems/limitations
 ==========================

@@ -174,7 +174,7 @@ static int box_write(const char *path, const char *buf, size_t size,
 
 static int box_statfs(const char *path, struct statvfs *stbuf)
 {
-    long tot_space, used_space;
+    long long tot_space, used_space;
     
     api_getusage(&tot_space, &used_space);
     stbuf->f_bsize = stbuf->f_frsize = 1;

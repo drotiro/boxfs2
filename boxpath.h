@@ -29,7 +29,7 @@ typedef struct boxdir_t
 typedef struct boxfile_t
 {
   char * name;
-  long size;
+  long long size;
   char * id;
   time_t ctime;
   time_t mtime;
