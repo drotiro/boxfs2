@@ -7,12 +7,18 @@
    Config file parsing and command line options
 */
 
+#include <sys/stat.h>
+
 /* command-line options */
 typedef struct box_options_t
 {
     char* user;
     char* password;
     char* mountpoint;
+    uid_t uid;
+    gid_t gid;
+    mode_t fperm;
+    mode_t dperm;
     int	verbose;
     int	secure;
     int splitfiles;

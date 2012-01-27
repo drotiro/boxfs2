@@ -437,11 +437,13 @@ int api_getattr(const char *path, struct stat *stbuf)
 	stbuf->st_mtime = bpath->file->mtime;
 	// access time unknown, approx with mtime
 	stbuf->st_atime = bpath->file->mtime;
+	stbuf->st_uid = options.uid;
+	stbuf->st_gid = options.gid;
 	if(bpath->is_dir) {
-		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_mode = S_IFDIR | options.dperm;
 		stbuf->st_nlink = 2 + api_subdirs(path);
 	} else {
-		stbuf->st_mode = S_IFREG | 0444;
+		stbuf->st_mode = S_IFREG | options.fperm;
 		stbuf->st_nlink = 1;
 	}
 	boxpath_free(bpath);
