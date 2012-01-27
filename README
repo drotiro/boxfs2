@@ -20,21 +20,27 @@ Usage
 Usage: boxfs [options] [mountPoint] [FUSE Mount Options]
 
 Options:
-  -H                show optional FUSE mount options
-  -u login          box.net login name
-  -p password       box.net password
-  -f conffile       file containing configuration options
-  -v                turn on verbose syslogging
-  -l                turn on support for large files (splitting)
-  -s                turn on secure connections (HTTPS) to box.net
+  -u --username   login       box.net login name
+  -p --password   password    box.net password
+  -f              conffile    file containing configuration options
+  -l --largefiles             enable support for large files (splitting)
+  -v --verbose                turn on verbose syslogging
+  -s --secure                 turn on secure connections (HTTPS) to box.net
+  -U --uid                    user id to use as file owner (defaults to you)
+  -G --gid                    group id to use for group permissions
+  -F --fperm                  file permissions (default 0644)
+  -D --dperm                  directory permissions (default 0755)
 
 Configuration file example:
 username   = mymail@mydomain.com
+password   = secret
 mountpoint = /path/to/folder
 verbose    = no
 secure     = no
-password = secret
-largefiles = yes
+largefiles = no
+uid        = 1000
+gid        = 100
+fperm      = 642
 
 Lines beginning with '#' are treated as comments and ignored.
 
