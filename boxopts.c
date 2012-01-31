@@ -122,6 +122,8 @@ int parse_options (int* argc, char*** argv, box_options * options)
 	};
 
     memset(options, 0, sizeof(options));
+    options->uid = getuid();
+    options->gid = getgid();
     this = app_new();
     app_opts_add(this, opts, sizeof(opts)/sizeof(opts[0]));
     app_opt_on_error(this, &show_usage);
@@ -164,8 +166,6 @@ int parse_options (int* argc, char*** argv, box_options * options)
 			options->fperm = 0644;
 		else
 			options->fperm = itomode(options->fperm);
-                if(!options->uid)
-                    options->uid = getuid();
 		if(!options->mountpoint) options->mountpoint = *argv[0];
 		args[1] = options->mountpoint;
 		*argc = 2;
