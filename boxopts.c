@@ -73,7 +73,7 @@ mode_t itomode (int mode)
 
 void show_usage (app * this, const char * opt)
 {
-    printf ("Usage: boxfs [options] [mountPoint] [FUSE Mount Options]\n\n"
+    printf ("Usage: boxfs [options] [mountPoint]\n\n"
             "Options:\n"
 //            "  -H                          show optional FUSE mount options\n"
             "  -u --username   login       box.net login name\n"

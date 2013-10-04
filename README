@@ -5,6 +5,12 @@
 This software is licensed under the GPLv2 Licence and
 comes with NO WARRANTY. Use at your own risk.
 
+Important note
+==============
+The OpenBox site says that "V1 of the Box API will End Life on Dec 14th 2013",
+so after that date boxfs will stop working, at least until someone port it to
+the V2 api.
+
 Compiling
 =========
 
@@ -17,7 +23,7 @@ See the project wiki for more detailed information:
 Usage
 =====
 
-Usage: boxfs [options] [mountPoint] [FUSE Mount Options]
+Usage: boxfs [options] [mountPoint] 
 
 Options:
   -u --username   login       box.net login name
@@ -64,6 +70,6 @@ contributions from:
 Known problems/limitations
 ==========================
 
-Tags and sharing informations are not handled at the moment.
+Tags and sharing informations are not handled.
 
 For any questions write me at pinguino(@)thesaguaros.com.

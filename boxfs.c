@@ -184,6 +184,18 @@ static int box_statfs(const char *path, struct statvfs *stbuf)
     return 0;
 }
 
+static int box_chmod(const char * path, mode_t mode)
+{
+	//gracefully ignore chmod requests
+	return 0;
+}
+	 
+static int box_chown(const char * path, uid_t owner, gid_t group)
+{
+	//gracefully ignore chown requests
+	return 0;
+}
+
 /*
  * Fuse operations for boxfs.
  * Most box_* functions just wrap their corresponding 'api_'
@@ -205,6 +217,8 @@ static struct fuse_operations box_oper = {
     .read	= box_read,
     .write	= box_write,
     .statfs	= box_statfs,
+    .chmod	= box_chmod,
+    .chown	= box_chown
 };
 
 
