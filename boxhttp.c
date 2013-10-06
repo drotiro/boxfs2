@@ -48,6 +48,7 @@ char * http_fetch(const char * url)
   curl = curl_easy_init();
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
     res = curl_easy_perform(curl);
@@ -79,6 +80,7 @@ int http_fetch_file(const char * url, const char * dest, int append)
   curl = curl_easy_init();
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     fout = fopen(dest, append ? "a": "w");
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fout);
     res = curl_easy_perform(curl);
@@ -135,6 +137,7 @@ void http_post(const char * url, postdata_t pd)
   curl = curl_easy_init();
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, throw_data);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
@@ -153,6 +156,7 @@ char * http_postfile(const char * url, postdata_t pd)
   curl = curl_easy_init();
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);

@@ -166,6 +166,10 @@ char * node_value(const char * buf, const char * name)
   doc = xmlReadDoc(buf, "noname.xml",NULL, 0);
 
   root_element = xmlDocGetRootElement(doc);
+  if(!root_element) {
+    if(doc) xmlFreeDoc(doc);
+    return val;
+  }
 
   for(cur_node = root_element->children; cur_node && !val; cur_node = cur_node->next) {
       if (cur_node->type == XML_ELEMENT_NODE) {
