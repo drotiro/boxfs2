@@ -37,6 +37,9 @@ int     ends_with(const char * str, const char * suff);
 #define PART_LEN    (20*1024*1024)
 #define MIN(A,B) (A<B ? A : B)
 
+/* globals needed almost everywhere */
+extern char * auth_token, * refresh_token;
+
 #endif
 // BOXAPI_H
 

@@ -11,6 +11,7 @@
 #include "boxpath.h"
 #include "boxhttp.h"
 #include "boxopts.h"
+#include "boxjson.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,19 +30,30 @@
 #include <libxml/tree.h>
 #include <libxml/uri.h>
 
-
+#include <libapp/app.h>
 /* Building blocks for OpenBox api endpoints
    and return codes
 */
-#define API_KEY_VAL "2uc9ec1gtlyaszba4h6nixt7gyzq3xir"
+// -- v2 --
+//    AUTH
+#define API_KEY_VAL "f9ss11y2w0hg5r04jsidxlhk4pil28cf"
+#define API_SECRET  "r3ZHAIhsOL2FoHjgERI9xf74W5skIM0w"
+#define API_OAUTH_URL "https://www.box.com/api/oauth2/"
+#define API_OAUTH_AUTHORIZE API_OAUTH_URL "authorize?response_type=code&client_id=" API_KEY_VAL "&redirect_uri=http%3A//localhost"
+#define API_OAUTH_TOKEN     API_OAUTH_URL "token"
+//    CALLS
+#define API_ENDPOINT	"://api.box.com/2.0/"
+#define API_LS		API_ENDPOINT "folders/"
+// -- v1 --
+//#define API_KEY_VAL "2uc9ec1gtlyaszba4h6nixt7gyzq3xir"
 #define API_KEY "&api_key=" API_KEY_VAL
 #define API_TOKEN API_KEY "&auth_token="
 #define API_REST_BASE "://www.box.net/api/1.0/rest?action="
-#define API_GET_TICKET API_REST_BASE "get_ticket" API_KEY
-#define API_GET_TICKET_OK "get_ticket_ok"
-#define API_LOGIN_URL "https://www.box.net/api/1.0/auth/"
-#define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
-#define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
+//#define API_GET_TICKET API_REST_BASE "get_ticket" API_KEY
+//#define API_GET_TICKET_OK "get_ticket_ok"
+//#define API_LOGIN_URL "https://www.box.net/api/1.0/auth/"
+//#define API_GET_AUTH_TOKEN API_REST_BASE "get_auth_token" API_KEY
+//#define API_GET_AUTH_TOKEN_OK "get_auth_token_ok"
 #define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&folder_id=0" API_TOKEN
 #define API_GET_ACCOUNT_TREE_OK "listing_ok"
 #define API_DOWNLOAD "://www.box.net/api/1.0/download/"
@@ -64,7 +76,7 @@
 #define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); 
 
 /* globals, written during initialization */
-char *ticket = NULL, *auth_token = NULL;
+char *auth_token = NULL, *refresh_token = NULL;
 char treefile[] = "/tmp/boxXXXXXX";
 long long tot_space, used_space;
 struct box_options_t options;
@@ -144,8 +156,9 @@ void api_free()
 
   api_logout();
 
-  if(ticket) free(ticket);
+  //if(ticket) free(ticket);
   if(auth_token) free(auth_token);
+  if(refresh_token) free(refresh_token);
   syslog(LOG_INFO, "Unmounting filesystem");
   closelog();
   
@@ -186,36 +199,59 @@ char * node_value(const char * buf, const char * name)
   return val;   
 }
 
-int get_ticket(struct box_options_t* options) {
-  char * buf = NULL;
-  char * status = NULL;
-  int res = 0;
-  postdata_t postpar=post_init();
-  char gkurl[512];
-  
-  buf = http_fetchf("%s" API_GET_TICKET, proto);
-  status = node_value(buf,"status");
-  if(strcmp(status,API_GET_TICKET_OK)) {
-    res = 1;
-  }
-  if(!res) ticket = node_value(buf,"ticket");
-  
-  if(buf) free(buf);
-  if(status) free(status);
-
-  /* autologin using http POST */
-  post_add(postpar,"dologin","1");
-  post_add(postpar,"__login","1");
-
-  post_add(postpar,"login",options->user);
-  post_add(postpar,"password",options->password);
-
-  sprintf(gkurl, API_LOGIN_URL "%s",ticket);
-  http_post(gkurl,postpar);
-  post_free(postpar);
-  
-  return res;
+/* APIv2 
+ * Handle Oauth2 authentication
+ */
+void save_tokens(const char * token_file)
+{
+	FILE * tf = fopen(token_file, "w");
+	
+	if(tf) {
+		fprintf(tf, "%s\n%s\n", auth_token, refresh_token);
+		fclose(tf);
+	}
 }
+ 
+int get_oauth_tokens()
+{
+	int res = 0;
+	char * buf = NULL, * status = NULL, * code = NULL;
+	jobj * tokens;
+	postdata_t postpar=post_init();
+
+	printf("Visit %s to authorize, then paste the code below\n", API_OAUTH_AUTHORIZE);
+	code = app_term_askpass("Code:");
+
+	post_add(postpar, "grant_type", "authorization_code");
+	post_add(postpar, "code", code);
+	post_add(postpar, "client_id", API_KEY_VAL);
+	post_add(postpar, "client_secret", API_SECRET);
+	buf = http_post(API_OAUTH_TOKEN, postpar);
+	//printf("Response: %s\n", buf);
+	tokens = jobj_parse(buf);
+	if(tokens) {
+		auth_token = jobj_getval(tokens, "access_token");
+		refresh_token = jobj_getval(tokens, "refresh_token");
+		if(auth_token) {
+			if(options.verbose) syslog(LOG_DEBUG, "auth_token=%s - refresh_token=%s\n",
+				auth_token, refresh_token);
+			if(options.token_file) save_tokens(options.token_file);
+		} else {
+			char * err = jobj_getval(tokens, "error_description");
+			fprintf(stderr, "Unable to get access token: %s\n", err ? err : "unknown error");
+		}
+		jobj_free(tokens);
+	} else {
+        	fprintf(stderr, "Unable to parse server response:\n%s\n", buf);
+	}
+
+	post_free(postpar);
+	if(buf)    free(buf);
+	if(code)   free(code);
+	if(status) free(status);
+	return res;
+}
+
 
 int get_account_info() {
   int res = 0;
@@ -309,6 +345,7 @@ int api_create(const char * path)
   return res;
 }
 
+/* OBSOLETE
 int get_key() {
   int res = 0;
   char * buf = NULL;
@@ -331,16 +368,19 @@ int get_key() {
 
   return res;
 }
+*/
 
 int get_tree() {
   int res = 0;
-  int fd;
-  char gkurl[512];
+  char * buf = NULL;
+  //int fd;
 
-  sprintf(gkurl, "%s" API_GET_ACCOUNT_TREE "%s", proto, auth_token);
-  fd = mkstemp(treefile);
-  if(fd!=-1) close(fd);
-  res = http_fetch_file(gkurl, treefile, FALSE);
+  buf = http_fetchf("%s" API_LS "0", proto);
+  //sprintf("%s" API_LS "/0", proto);
+  //fd = mkstemp(treefile);
+  //if(fd!=-1) close(fd);
+  //res = http_fetch(gkurl, treefile, FALSE);
+  fprintf(stderr,"%s\n",buf);
 
   return res;
 }
@@ -740,7 +780,8 @@ int api_init(int* argc, char*** argv) {
   xmlInitParser();
   openlog("boxfs", LOG_PID, LOG_USER);
   proto = options.secure ? PROTO_HTTPS : PROTO_HTTP;
-  
+
+  /*  
   res = get_ticket(&options);
   if(res) BOX_ERR("Unable to initialize Box.net connection.\n");
   else {
@@ -751,6 +792,15 @@ int api_init(int* argc, char*** argv) {
       if(res) BOX_ERR("Error while fetching user file tree\n");
     }
   }
+  */
+  if(!auth_token || !refresh_token) 
+	  res = get_oauth_tokens();
+
+  if(auth_token) {
+	  update_auth_header(auth_token);
+	  res = get_tree();
+  }
+  //res = 1; //force quit
   
   if(!res) {
     boxtree_setup(treefile);

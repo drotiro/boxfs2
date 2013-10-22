@@ -1,0 +1,33 @@
+#ifndef BOXJSON_H
+#define BOXJSON_H
+
+/* 2013-10-18 Domenico Rotiroti
+ *    Licensed under the GPLv2
+ *
+ *    JSON parsing and traversing
+ *    functions.
+ */
+
+#include <json.h>
+#include <libapp/list.h>
+
+
+typedef enum { T_VAL, T_OBJ, T_ARR } objtype;
+
+typedef struct jobj_t {
+	char *  key;
+	objtype type;
+	char *  value;
+	list *  children;
+	
+} jobj;
+
+jobj *	jobj_get(const jobj * obj, const char * key);
+char *  jobj_getval(const jobj * obj, const char * key);
+jobj *	jobj_parse(const char * json_str);
+
+jobj *  jobj_new();
+void	jobj_free(jobj * obj);
+
+#endif
+//BOXJSON_H

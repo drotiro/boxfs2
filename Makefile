@@ -1,9 +1,9 @@
 
 # Variables
-PKGS = fuse libxml-2.0 libcurl libzip libapp
+PKGS = fuse libxml-2.0 libcurl libzip libapp libjson
 FLAGS = $(shell pkg-config ${PKGS} --cflags) -g ${CFLAGS}
 LIBS = $(shell pkg-config ${PKGS} --libs) 
-OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o
+OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
@@ -38,4 +38,4 @@ boxfs.o:	boxfs.c boxapi.h
 boxpath.o:	boxpath.c boxpath.h
 boxhttp.o:	boxhttp.c boxhttp.h boxopts.h
 boxopts.o:	boxopts.c boxopts.h
-
+boxjson.o:	boxjson.c boxjson.h

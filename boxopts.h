@@ -12,8 +12,9 @@
 /* command-line options */
 typedef struct box_options_t
 {
-    char* user;
-    char* password;
+//    char* user;
+//    char* password;
+    char* token_file;
     char* mountpoint;
     uid_t uid;
     gid_t gid;

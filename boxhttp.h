@@ -31,9 +31,11 @@ void post_add(postdata_t buf, const char * name, const char * val);
 long post_addfile(postdata_t rbuf, const char * name, const char * tmpfile);
 char * post_addfile_part(postdata_t rbuf, const char * name,
         const char * tmpfile, size_t offset, size_t len);
-void http_post(const char * url, postdata_t data);
+char * http_post(const char * url, postdata_t data);
 char * http_postfile(const char * url, postdata_t data);
 
+/* Authentication */
+void update_auth_header(const char * auth_token);
 
 #endif
 //BOXHTTP_H

@@ -13,6 +13,37 @@
 
 #define MAXBUF 4096
 
+static struct curl_slist *headers = NULL;
+
+/* Take care of Authentication header */
+void update_auth_header(const char * auth_token)
+{
+	struct curl_slist * hnew = NULL;
+	char header[96] = "Authorization: Bearer ";
+
+	if(auth_token) {
+		strncat(header, auth_token, 32);
+		hnew = curl_slist_append(hnew, header);
+	}
+
+	if(headers) curl_slist_free_all(headers);
+	headers = hnew;
+}
+
+/* cURL initialization with common options */
+CURL * my_curl_init(const char * url)
+{
+	struct curl_slist *h=NULL;
+	CURL * curl;
+
+	curl = curl_easy_init();
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+	if(headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	
+	return curl;
+}
+
 postdata_t post_init()
 {
   postdata_t pd = malloc(sizeof(struct postdata));
@@ -45,10 +76,8 @@ char * http_fetch(const char * url)
   char * data = malloc(MAXBUF);
 
   data[0] = 0;
-  curl = curl_easy_init();
+  curl = my_curl_init(url);
   if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
     res = curl_easy_perform(curl);
@@ -77,10 +106,8 @@ int http_fetch_file(const char * url, const char * dest, int append)
   FILE * fout;
   double dt;
 
-  curl = curl_easy_init();
+  curl = my_curl_init(url);
   if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     fout = fopen(dest, append ? "a": "w");
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fout);
     res = curl_easy_perform(curl);
@@ -129,21 +156,23 @@ char * post_addfile_part(postdata_t pd, const char * name,
 }
 
 
-void http_post(const char * url, postdata_t pd)
+char * http_post(const char * url, postdata_t pd)
 {
-  CURL *curl;
-  CURLcode res = -1;
+	CURL *curl;
+	CURLcode res = -1;
+	char * data = malloc(MAXBUF);
+	data[0] = 0;
 
-  curl = curl_easy_init();
-  if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, throw_data);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
-    res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-  }
+	curl = my_curl_init(url);
+	if(curl) {
+		curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+	}
+
+	return data;
 }
 
 char * http_postfile(const char * url, postdata_t pd)
@@ -153,10 +182,8 @@ char * http_postfile(const char * url, postdata_t pd)
   char * data = malloc(MAXBUF);
 
   data[0] = 0;
-  curl = curl_easy_init();
+  curl = my_curl_init(url);
   if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
@@ -167,4 +194,4 @@ char * http_postfile(const char * url, postdata_t pd)
 
   return data;
 }
-                                             
+

@@ -2,6 +2,7 @@
  Licensed under the GPLv2
  **************************/
 
+#include "boxapi.h"
 #include "boxopts.h"
 #include <string.h>
 #include <libapp/app.h>
@@ -10,11 +11,12 @@
 #include <fuse.h>
 
 char* args[] = { "boxfs", "-h" };
-
+/*
 void show_fuse_usage (app * theapp, const char * opt)
 {
     fuse_main (2, args, NULL);
 }
+*/
 
 mode_t itomode (int mode)
 {
@@ -76,9 +78,10 @@ void show_usage (app * this, const char * opt)
     printf ("Usage: boxfs [options] [mountPoint]\n\n"
             "Options:\n"
 //            "  -H                          show optional FUSE mount options\n"
-            "  -u --username   login       box.net login name\n"
-            "  -p --password   password    box.net password\n"
+//            "  -u --username   login       box.net login name\n"
+//            "  -p --password   password    box.net password\n"
             "  -f              conffile    file containing configuration options\n"
+	    "  -t --token_file tokenfile   file containing oauth tokens\n"
             "  -l --largefiles             enable support for large files (splitting)\n"
             "  -v --verbose                turn on verbose syslogging\n"
             "  -s --secure                 turn on secure connections (HTTPS) to box.net\n"
@@ -87,8 +90,6 @@ void show_usage (app * this, const char * opt)
             "  -F --fperm                  file permissions (default 0644)\n"
             "  -D --dperm                  directory permissions (default 0755)\n\n"
             "Configuration file example:\n"
-            "username   = mymail@mydomain.com\n"
-            "password = secret\n"
             "mountpoint = /path/to/folder\n"
             "verbose    = no\n"
             "secure     = no\n"
@@ -104,12 +105,13 @@ int parse_options (int* argc, char*** argv, box_options * options)
     char* pass_file = NULL;
     app * this;
     bool res;
-    FILE * cfile;
+    FILE * cfile, * tfile;
     opt opts[] = {
 /* FUSE options are not handled at the moment, so let's disable -H */
 //		{'H', NULL, OPT_CALLBACK, &show_fuse_usage},
-		{'u', "username", OPT_STRING, &options->user},
-		{'p', "password", OPT_PASSWD, &options->password},
+//		{'u', "username", OPT_STRING, &options->user},
+//		{'p', "password", OPT_PASSWD, &options->password},
+	    	{'t', "token_file", OPT_STRING, &options->token_file},
 		{'f', NULL, OPT_STRING, &pass_file},
 		{'v', "verbose", OPT_FLAG, &options->verbose},
 		{'s', "secure", OPT_FLAG, &options->secure},
@@ -141,6 +143,17 @@ int parse_options (int* argc, char*** argv, box_options * options)
 		}
     }
 
+    if(res && options->token_file) {
+	tfile = fopen(options->token_file, "r");
+	if(tfile) {
+		auth_token    = app_term_readline_from(tfile);
+		refresh_token = app_term_readline_from(tfile);
+		fclose(tfile);
+	} else {
+		fprintf(stderr, "Info: will write auth tokens in file %s\n", options->token_file);
+	}
+    }
+
     /* check for mountpoint presence */
     if(res && !options->mountpoint && !*argc) {
     	fprintf(stderr, "Error: mountpoint not specified\n"
@@ -150,6 +163,7 @@ int parse_options (int* argc, char*** argv, box_options * options)
 	}
 	
 	if(res) {
+		/*
 		if(!options->user) {
 			printf("Login: ");
 			options->user = app_term_readline();
@@ -158,6 +172,7 @@ int parse_options (int* argc, char*** argv, box_options * options)
 		if(!options->password) {
 			options->password = app_term_askpass("Password:");
 		}
+		*/
 		if(!options->dperm)
 			options->dperm = 0755;
 		else
