@@ -84,7 +84,6 @@ void show_usage (app * this, const char * opt)
 	    "  -t --token_file tokenfile   file containing oauth tokens\n"
             "  -l --largefiles             enable support for large files (splitting)\n"
             "  -v --verbose                turn on verbose syslogging\n"
-            "  -s --secure                 turn on secure connections (HTTPS) to box.net\n"
             "  -U --uid                    user id to use as file owner (defaults to you)\n"
             "  -G --gid                    group id to use for group permissions\n"
             "  -F --fperm                  file permissions (default 0644)\n"
@@ -92,7 +91,8 @@ void show_usage (app * this, const char * opt)
             "Configuration file example:\n"
             "mountpoint = /path/to/folder\n"
             "verbose    = no\n"
-            "secure     = no\n"
+            "token_file = /path/to/token_file\n"
+            "cache_dir  = /path/to/cache/dir\n"
             "largefiles = no\n"
             "uid = 1000\n"
             "gid = 100\n"
@@ -112,9 +112,10 @@ int parse_options (int* argc, char*** argv, box_options * options)
 //		{'u', "username", OPT_STRING, &options->user},
 //		{'p', "password", OPT_PASSWD, &options->password},
 	    	{'t', "token_file", OPT_STRING, &options->token_file},
+	    	{'c', "cache_dir", OPT_STRING, &options->cache_dir},
 		{'f', NULL, OPT_STRING, &pass_file},
 		{'v', "verbose", OPT_FLAG, &options->verbose},
-		{'s', "secure", OPT_FLAG, &options->secure},
+//		{'s', "secure", OPT_FLAG, &options->secure},
                 {'l', "largefiles", OPT_FLAG, &options->splitfiles},
                 {'U', "uid", OPT_INT, &options->uid},
                 {'G', "gid", OPT_INT, &options->gid},
@@ -147,7 +148,9 @@ int parse_options (int* argc, char*** argv, box_options * options)
 	tfile = fopen(options->token_file, "r");
 	if(tfile) {
 		auth_token    = app_term_readline_from(tfile);
+		auth_token[strlen(auth_token)-1] = 0; //trim
 		refresh_token = app_term_readline_from(tfile);
+		refresh_token[strlen(refresh_token)-1] = 0; //trim
 		fclose(tfile);
 	} else {
 		fprintf(stderr, "Info: will write auth tokens in file %s\n", options->token_file);

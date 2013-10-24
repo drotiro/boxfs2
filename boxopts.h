@@ -15,13 +15,13 @@ typedef struct box_options_t
 //    char* user;
 //    char* password;
     char* token_file;
+    char* cache_dir;
     char* mountpoint;
     uid_t uid;
     gid_t gid;
     mode_t fperm;
     mode_t dperm;
     int	verbose;
-    int	secure;
     int splitfiles;
 } box_options;
 

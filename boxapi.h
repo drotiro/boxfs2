@@ -30,8 +30,8 @@ int     ends_with(const char * str, const char * suff);
 #define BOX_ERR(MSG) fprintf(stderr,MSG)
 #define FALSE 0
 #define TRUE  1
-#define PROTO_HTTP  "http"
-#define PROTO_HTTPS "https"
+//#define PROTO_HTTP  "http"
+//#define PROTO_HTTPS "https"
 #define PART_SUFFIX "BF#"
 #define PART_SUFFIX_LEN 3
 #define PART_LEN    (20*1024*1024)

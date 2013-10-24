@@ -13,6 +13,8 @@
 #include <time.h>
 #include <libapp/list.h>
 
+#include "boxjson.h"
+
 #ifndef TRUE
 #define TRUE  1
 #define FALSE 0
@@ -60,7 +62,8 @@ list_iter	boxpath_first_part(boxpath * bpath);
 list_iter	boxpath_next_part(boxpath * bpath, list_iter it);
 
 /* Tree handling */
-void 		boxtree_setup(const char * treefile);
+void 		boxtree_init(jobj * root, jobj * info);
+boxdir *	boxtree_add_folder(const char * path, const char * id, jobj * folder);
 void		boxtree_movedir(const char * from, const char * to);
 
 /* Other utilities */

@@ -1,9 +1,9 @@
 
 # Variables
-PKGS = fuse libxml-2.0 libcurl libzip libapp libjson
+PKGS = fuse libxml-2.0 libcurl libapp libjson
 FLAGS = $(shell pkg-config ${PKGS} --cflags) -g ${CFLAGS}
 LIBS = $(shell pkg-config ${PKGS} --libs) 
-OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o
+OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxutils.o
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
@@ -33,9 +33,13 @@ ifndef PKG_CONFIG_VER
 endif
 
 # Dependencies
-boxapi.o:	boxapi.c boxapi.h boxpath.h boxhttp.h boxopts.h
-boxfs.o:	boxfs.c boxapi.h
-boxpath.o:	boxpath.c boxpath.h
-boxhttp.o:	boxhttp.c boxhttp.h boxopts.h
-boxopts.o:	boxopts.c boxopts.h
-boxjson.o:	boxjson.c boxjson.h
+# (gcc -MM *.c  -D_FILE_OFFSET_BITS=64)
+boxapi.o: boxapi.c boxapi.h boxpath.h boxjson.h boxhttp.h boxopts.h boxutils.h
+boxcache.o: boxcache.c boxcache.h boxutils.h
+boxfs.o: boxfs.c boxapi.h
+boxhttp.o: boxhttp.c boxhttp.h boxapi.h boxopts.h
+boxjson.o: boxjson.c boxjson.h
+boxopts.o: boxopts.c boxapi.h boxopts.h
+boxpath.o: boxpath.c boxpath.h boxjson.h boxapi.h boxopts.h boxutils.h
+boxutils.o: boxutils.c boxutils.h
+ 

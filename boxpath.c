@@ -11,13 +11,13 @@
 #include "boxpath.h"
 #include "boxapi.h"
 #include "boxopts.h"
+#include "boxutils.h"
 
 #include <string.h>
 #include <libgen.h>
 #include <errno.h>
 #include <syslog.h>
 #include <time.h>
-#include <zip.h>
 
 #define DIR_HASH_SIZE	1001
 
@@ -145,7 +145,7 @@ list_iter   boxpath_next_part(boxpath * bpath, list_iter it)
 	return it;	
 }
 
-/* boxtree_setup and helpers
+/* boxtree_* functions and helpers
    used at mount time to fill the allDirs hash
 */
 void find_file_for_part(const char * pname, list_iter * it)
@@ -164,18 +164,76 @@ int filename_compare(void * p1, void * p2)
     return strcmp(f1->name, f2->name);
 }
 
-void parse_dir(const char * path, xmlNode * node, const char * id)
+void setup_root_dir(jobj * root, jobj * info)
 {
-  xmlNodePtr cur_node, cur_file, cur_dir;
-  xmlAttrPtr attrs;
-  boxdir * aDir;
-  boxfile * aFile, * part;
-  char * newPath;
-  int plen = strlen(path);
-  list_iter it, pit;
+	rootDir = (boxfile*) malloc(sizeof(boxfile));
+	rootDir->size = 0;
+	rootDir->name = strdup("/");
+	rootDir->size = jobj_getlong(root, "size");
+	rootDir->ctime = jobj_gettime(info, "created_at");
+	rootDir->mtime = jobj_gettime(info, "modified_at");
+/*
+	xmlAttrPtr attrs;
 
-  aDir = boxdir_create();
+	rootDir = (boxfile*) malloc(sizeof(boxfile));
+	rootDir->size = 0;
+	rootDir->name = strdup("/");
+	for (attrs = cur_node->properties; attrs; attrs = attrs->next) {
+		if(!strcmp(attrs->name,"created")) rootDir->ctime = atol(attrs->children->content);
+		else if(!strcmp(attrs->name,"updated")) rootDir->mtime = atol(attrs->children->content);
+		else if(!strcmp(attrs->name,"size")) rootDir->size = atol(attrs->children->content);
+	}
+*/
+}
 
+boxfile * obj_to_file(jobj * obj)
+{
+	list_iter it;
+	jobj * item;
+	boxfile * f = (boxfile*) malloc(sizeof(boxfile));
+	
+	memset(f, 0, sizeof(boxfile));
+	it = list_get_iter(obj->children);
+	for(; it; it = list_iter_next(it)) {
+		item = list_iter_getval(it);
+		if(!strcmp(item->key,"id")) f->id = strdup(item->value);
+		else if(!strcmp(item->key, "size")) f->size = atoll(item->value);
+		else if(!strcmp(item->key, "name")) f->name = strdup(item->value);
+		else if(!strcmp(item->key, "created_at")) f->ctime = unix_time(item->value);
+		else if(!strcmp(item->key, "modified_at")) f->mtime = unix_time(item->value);
+	}
+
+	return f;
+}
+
+boxdir * boxtree_add_folder(const char * path, const char * id, jobj * folder)
+{
+	boxdir * aDir;
+	boxfile * aFile, * part;
+	list_iter it, pit;
+	jobj * obj, *item;
+	char * type;
+
+	aDir = boxdir_create();
+	aDir->id = strdup(id);
+	
+	syslog(LOG_DEBUG, "Adding %s", path);
+	obj = jobj_get(folder, "entries");
+	it = list_get_iter(obj->children);
+	for(; it; it = list_iter_next(it)) {
+        	item = list_iter_getval(it);
+		aFile = obj_to_file(item);
+
+        	type = jobj_getval(item, "type");
+        	if(!strcmp(type,"folder")) list_append(aDir->folders, aFile);
+        	else list_append(aDir->files, aFile);
+        	free(type);
+	}
+	
+	xmlHashAddEntry(allDirs, path, aDir);
+	return aDir;
+	
+/*
   for (cur_node = node->children; cur_node; cur_node = cur_node->next) {
     if(!strcmp(cur_node->name,"files")) {
       for (cur_file = cur_node->children; cur_file; cur_file = cur_file->next) {
@@ -222,142 +280,17 @@ void parse_dir(const char * path, xmlNode * node, const char * id)
           else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
         }
         list_append(aDir->folders,aFile);
-
-        newPath = (char *) malloc(plen + strlen(aFile->name) + 2);
-        sprintf(newPath, (plen==1 ? "%s%s" : "%s/%s"), path, aFile->name);
-        parse_dir(newPath, cur_dir, aFile->id);
-        free(newPath);
       }
     }
-    /* skipping tags & sharing info */
+    //skipping tags & sharing info 
   }
-
-  aDir->id = strdup(id);
-  xmlHashAddEntry(allDirs, path, aDir);
+*/
 }
 
-void setup_root_dir(xmlNode * cur_node) {
-	xmlAttrPtr attrs;
-
-	rootDir = (boxfile*) malloc(sizeof(boxfile));
-	rootDir->size = 0;
-	rootDir->name = strdup("/");
-	for (attrs = cur_node->properties; attrs; attrs = attrs->next) {
-		if(!strcmp(attrs->name,"created")) rootDir->ctime = atol(attrs->children->content);
-		else if(!strcmp(attrs->name,"updated")) rootDir->mtime = atol(attrs->children->content);
-		else if(!strcmp(attrs->name,"size")) rootDir->size = atol(attrs->children->content);
-	}
-}
-
-/*
- * Helpers for base64 and deflate decoding
- * base64 decoder adapted from a PD implementation
- * found on the net.
- */
-char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-inline char decode(char q)
+void boxtree_init(jobj * root, jobj * info)
 {
-        return strchr(b64chars, q) - b64chars;
-}
-
-int base64_decode(char *src, char * dst)
-{
-  int x, y = 0;
-  int len;
-  char triple[3];
-  char quad[4];
-
-  len = strlen(src);
-  if(src[len-2]=='=') src[len-2]='A';
-  if(src[len-1]=='=') src[len-1]='A';
-  for(x = 0; x < len; x += 4)
-    {
-          while(src[x]=='\r' || src[x]=='\n') ++x; //skip eol
-      memset(quad, 0, 4);
-      memcpy(quad, &src[x], (len - x) >= 4 ? 4 : len - x );
-
-      quad[0] = decode(quad[0]);
-      quad[1] = decode(quad[1]);
-      quad[2] = decode(quad[2]);
-      quad[3] = decode(quad[3]);
-      triple[0] = (quad[0] << 2) | quad[1] >> 4;
-      triple[1] = ((quad[1] << 4) & 0xF0) | quad[2] >> 2;
-      triple[2] = ((quad[2] << 6) & 0xC0) | quad[3];
-      memcpy(&dst[y], triple, 3);
-      y += 3;
-    }
-
-  return y;
-}
-
-int unzip_first(const char * fname, char * dest)
-{
-    struct zip * z;
-    struct zip_file * zf;
-    char buf[16384], *dp = dest;
-    int br;
-
-    z = (struct zip *) zip_open(fname, 0, NULL);
-    zf = (struct zip_file *) zip_fopen_index(z, 0, 0);
-    while(br = zip_fread(zf, buf, sizeof(buf)))
-    {
-        memcpy(dp, buf, br);
-        dp+=br;
-    }
-    zip_fclose(zf);
-    zip_close(z);
-    *dp=0;
-    return (dp-dest);
-}
-/*   */
-
-void boxtree_setup(const char * treefile)
-{
-  xmlDoc *doc = NULL;
-  xmlNode *root_element = NULL;
-  xmlNode *cur_node = NULL;
-  char * tree_decoded, * tree_encoded, * tree_xml;
-  long tlen, zlen;
-  FILE * tf;
-
-  allDirs = xmlHashCreate(DIR_HASH_SIZE);
-  doc = xmlParseFile(treefile);
-  root_element = xmlDocGetRootElement(doc);
-  /* 
-   * let's go to /response/tree node
-   * it's a base64 encoded ziparchive
-   */
-  cur_node = root_element->children;
-  while(strcmp(cur_node->name,"tree")) cur_node = cur_node->next; //skip status
-  tree_encoded = cur_node->children->content;
-  tree_decoded = malloc(strlen(tree_encoded)+1);
-  zlen = base64_decode(tree_encoded, tree_decoded);
-  xmlFreeDoc(doc);
-  //save the zip 'cause zip_open wants a file
-  tf = fopen(treefile, "w");
-  fwrite(tree_decoded, 1, zlen, tf);
-  fclose(tf);
-  free(tree_decoded);
-  //unzip the tree to memory
-  tlen = zlen*15;
-  tree_xml = malloc(tlen);
-  unzip_first(treefile, tree_xml);
-  doc = xmlParseDoc(tree_xml);
-  cur_node = xmlDocGetRootElement(doc);
-  setup_root_dir(cur_node);
-  parse_dir("/",cur_node,"0");
-
-  xmlFreeDoc(doc);
-  free(tree_xml);
-}
-
-char * 	pathappend(const char * one, const char * two)
-{
-  char * res = malloc(strlen(one)+strlen(two)+2);
-  res[0]=0;
-  sprintf(res, "%s/%s", one, two);
-  return res;
+	setup_root_dir(root, info);
+	allDirs = xmlHashCreate(DIR_HASH_SIZE);	
 }
 
 // Move a dir to another path in the tree,

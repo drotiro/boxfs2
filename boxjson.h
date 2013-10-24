@@ -10,6 +10,7 @@
 
 #include <json.h>
 #include <libapp/list.h>
+#include <time.h>
 
 
 typedef enum { T_VAL, T_OBJ, T_ARR } objtype;
@@ -22,12 +23,16 @@ typedef struct jobj_t {
 	
 } jobj;
 
-jobj *	jobj_get(const jobj * obj, const char * key);
-char *  jobj_getval(const jobj * obj, const char * key);
-jobj *	jobj_parse(const char * json_str);
+jobj *    jobj_get(const jobj * obj, const char * key);
+char *    jobj_getval(const jobj * obj, const char * key);
+long long jobj_getlong(const jobj * obj, const char * key);
+time_t    jobj_gettime(const jobj * obj, const char * key);
+jobj *    jobj_array_item(const jobj * obj,int at);
+jobj *    jobj_parse(const char * json_str);
 
 jobj *  jobj_new();
-void	jobj_free(jobj * obj);
+void    jobj_free(jobj * obj);
 
+time_t  unix_time(const char * timestr);
 #endif
 //BOXJSON_H

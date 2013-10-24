@@ -12,8 +12,36 @@
 #include "boxopts.h"
 
 #define MAXBUF 4096
+#define DATABUF 32768
+//#define DATABUF 4096
 
 static struct curl_slist *headers = NULL;
+
+typedef struct edata_t {
+	char * data;
+	size_t len;
+	size_t capacity;
+} edata;
+
+void edata_init(edata * e) {
+	e->data = malloc(DATABUF);
+	e->data[0] = 0;
+	e->capacity = DATABUF;
+	e->len = 0;
+}
+
+void edata_cat(edata * e, char * txt, size_t size)
+{
+	if((e->len+size) >= e->capacity) {
+		//printf("old size: %d, new size: %d\n", e->capacity, e->capacity+DATABUF);
+		e->data = realloc(e->data, e->capacity+DATABUF);
+		e->capacity+=DATABUF;
+	}
+	
+	memcpy(e->data+e->len, txt, size);
+	e->len+=size;
+	e->data[e->len] = 0;
+}
 
 /* Take care of Authentication header */
 void update_auth_header(const char * auth_token)
@@ -65,7 +93,8 @@ size_t throw_data(void * data, size_t size, size_t nmemb, void * stream)
 
 size_t fetch_append(void * data, size_t size, size_t nmemb, void * stream)
 {
-  strncat(stream, data, size*nmemb);
+  edata * e = (edata*) stream;
+  edata_cat(e, data, size*nmemb);
   return size*nmemb; 
 }
 
@@ -73,19 +102,20 @@ char * http_fetch(const char * url)
 {
   CURL *curl;
   CURLcode res = -1;
-  char * data = malloc(MAXBUF);
+  edata e;
+  
 
-  data[0] = 0;
+  edata_init(&e);
   curl = my_curl_init(url);
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
     res = curl_easy_perform(curl);
 
     curl_easy_cleanup(curl);
   }
   
-  return data;
+  return e.data;
 }
 
 char *  http_fetchf(const char * fmt, ...)
@@ -109,6 +139,7 @@ int http_fetch_file(const char * url, const char * dest, int append)
   curl = my_curl_init(url);
   if(curl) {
     fout = fopen(dest, append ? "a": "w");
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fout);
     res = curl_easy_perform(curl);
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &dt);
@@ -160,38 +191,37 @@ char * http_post(const char * url, postdata_t pd)
 {
 	CURL *curl;
 	CURLcode res = -1;
-	char * data = malloc(MAXBUF);
-	data[0] = 0;
+	edata e;
 
+	edata_init(&e);
 	curl = my_curl_init(url);
 	if(curl) {
 		curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
 		res = curl_easy_perform(curl);
 		curl_easy_cleanup(curl);
 	}
 
-	return data;
+	return e.data;
 }
 
 char * http_postfile(const char * url, postdata_t pd)
 {
   CURL *curl;
   CURLcode res = -1;
-  char * data = malloc(MAXBUF);
+  edata e;
 
-  data[0] = 0;
+  edata_init(&e);
   curl = my_curl_init(url);
   if(curl) {
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
     res = curl_easy_perform(curl);
 
     curl_easy_cleanup(curl);
   }
 
-  return data;
+  return e.data;
 }
-
