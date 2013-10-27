@@ -34,12 +34,11 @@ endif
 
 # Dependencies
 # (gcc -MM *.c  -D_FILE_OFFSET_BITS=64)
-boxapi.o: boxapi.c boxapi.h boxpath.h boxjson.h boxhttp.h boxopts.h boxutils.h
+boxapi.o: boxapi.c boxapi.h boxpath.h boxjson.h boxhttp.h boxopts.h boxutils.h boxcache.h
 boxcache.o: boxcache.c boxcache.h boxutils.h
 boxfs.o: boxfs.c boxapi.h
-boxhttp.o: boxhttp.c boxhttp.h boxapi.h boxopts.h
+boxhttp.o: boxhttp.c boxhttp.h boxapi.h boxopts.h boxutils.h
 boxjson.o: boxjson.c boxjson.h
 boxopts.o: boxopts.c boxapi.h boxopts.h
 boxpath.o: boxpath.c boxpath.h boxjson.h boxapi.h boxopts.h boxutils.h
 boxutils.o: boxutils.c boxutils.h
- 

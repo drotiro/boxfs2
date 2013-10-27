@@ -23,6 +23,9 @@ char * make_path(const char * key)
 	return pathappend(cache_dir, key);
 }
 
+#define BOM "\xEF\xBB\xBF"
+#define BOMLEN strlen(BOM)
+
 char * cache_get(const char * key)
 {
 
@@ -35,13 +38,15 @@ char * cache_get(const char * key)
 
 	if(!kf) return NULL;
 	
-	v = malloc(flen);
-	if (v) fread(v, 1, flen, kf);
+	v = malloc(flen+1);
+	if (v) {
+		fread(v, 1, flen, kf);
+		v[flen] = 0;
+	}
 	
 	fclose(kf);
 	return v;
 }
-
 
 void   cache_put(const char * key, const char * val)
 {
@@ -51,6 +56,7 @@ void   cache_put(const char * key, const char * val)
 	
 	if(!kf) return;
 	
+//	fwrite(BOM, BOMLEN, 1, kf);
 	fwrite(val, strlen(val), 1, kf);
 	fclose(kf);
 }

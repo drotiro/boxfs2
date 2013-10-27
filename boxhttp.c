@@ -10,38 +10,11 @@
 
 #include "boxhttp.h"
 #include "boxopts.h"
+#include "boxutils.h"
 
 #define MAXBUF 4096
-#define DATABUF 32768
-//#define DATABUF 4096
 
 static struct curl_slist *headers = NULL;
-
-typedef struct edata_t {
-	char * data;
-	size_t len;
-	size_t capacity;
-} edata;
-
-void edata_init(edata * e) {
-	e->data = malloc(DATABUF);
-	e->data[0] = 0;
-	e->capacity = DATABUF;
-	e->len = 0;
-}
-
-void edata_cat(edata * e, char * txt, size_t size)
-{
-	if((e->len+size) >= e->capacity) {
-		//printf("old size: %d, new size: %d\n", e->capacity, e->capacity+DATABUF);
-		e->data = realloc(e->data, e->capacity+DATABUF);
-		e->capacity+=DATABUF;
-	}
-	
-	memcpy(e->data+e->len, txt, size);
-	e->len+=size;
-	e->data[e->len] = 0;
-}
 
 /* Take care of Authentication header */
 void update_auth_header(const char * auth_token)

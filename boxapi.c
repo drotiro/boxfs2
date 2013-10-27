@@ -49,6 +49,7 @@
 #define API_INFO	API_ENDPOINT "users/me"
 #define API_DOWNLOAD	API_ENDPOINT "files/%s/content"
 #define API_UPLOAD      "https://upload.box.com/api/2.0/files/content"
+#define API_UPLOAD_VER  "https://upload.box.com/api/2.0/files/%s/content"
 //    UTILS
 #define BUFSIZE 1024
 // -- v1 --
@@ -434,7 +435,7 @@ int api_open(const char * path, const char * pfile){
 			//download of other parts
 			for(it = boxpath_first_part(bpath); it ; it=boxpath_next_part(bpath, it)) {
 				aFile = (boxfile*) list_iter_getval(it);
-				sprintf(gkurl, API_DOWNLOAD, aFile->id);
+				snprintf(gkurl, BUFSIZE, API_DOWNLOAD, aFile->id);
 				if(options.verbose) syslog(LOG_DEBUG, "Appending file part %s", aFile->name);
 				http_fetch_file(gkurl, pfile, TRUE);
 			}
@@ -728,7 +729,7 @@ void api_upload(const char * path, const char * tmpfile)
   if(bpath->dir) {
     post_add(buf, "parent_id", bpath->dir->id);
     fsize = filesize(tmpfile);
-    oldver = boxpath_getfile(bpath);
+    oldver = (boxpath_getfile(bpath) && bpath->file->size);
     //if there was an older version of the file with parts, remove them
     if(options.splitfiles && oldver && (bpath->file->size > PART_LEN)) {
     	api_removefile(path);
@@ -761,10 +762,16 @@ void api_upload(const char * path, const char * tmpfile)
     } else if(fsize) {
     	//normal upload
     	post_addfile(buf, bpath->base, tmpfile);
-    	res = http_postfile(API_UPLOAD, buf);
-	    //fid = attr_value(res,"id");
-	    set_filedata(bpath ,res, fsize);
-	    free(res);
+    	if(oldver) {
+    	        char gkurl[BUFSIZE]="";
+    	        snprintf(gkurl, BUFSIZE, API_UPLOAD_VER, bpath->file->id);
+    	        res = http_postfile(gkurl, buf);
+        } else {
+                res = http_postfile(API_UPLOAD, buf);
+        }
+	//fid = attr_value(res,"id");
+	set_filedata(bpath ,res, fsize);
+	free(res);
     }
   } else {
     syslog(LOG_ERR,"Couldn't upload file %s",bpath->base);
