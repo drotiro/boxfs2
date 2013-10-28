@@ -19,6 +19,7 @@ char * make_path(const char * key)
 		fprintf(stderr, "ERROR: cache_init has not been called\n");
 		return NULL;
 	}
+	if(strstr(key, "../")) return NULL;
 	
 	return pathappend(cache_dir, key);
 }
@@ -46,6 +47,16 @@ char * cache_get(const char * key)
 	
 	fclose(kf);
 	return v;
+}
+
+void   cache_rm(const char * key)
+{
+	char * fname = make_path(key);
+
+	if(fname) {
+		unlink(fname);
+		free(fname);
+	}
 }
 
 void   cache_put(const char * key, const char * val)

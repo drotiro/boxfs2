@@ -34,7 +34,6 @@ void update_auth_header(const char * auth_token)
 /* cURL initialization with common options */
 CURL * my_curl_init(const char * url)
 {
-	struct curl_slist *h=NULL;
 	CURL * curl;
 
 	curl = curl_easy_init();
@@ -73,22 +72,41 @@ size_t fetch_append(void * data, size_t size, size_t nmemb, void * stream)
 
 char * http_fetch(const char * url)
 {
-  CURL *curl;
-  CURLcode res = -1;
-  edata e;
-  
+	CURL *curl;
+	//CURLcode res = -1;
+	edata e;
 
-  edata_init(&e);
-  curl = my_curl_init(url);
-  if(curl) {
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
-    res = curl_easy_perform(curl);
 
-    curl_easy_cleanup(curl);
-  }
-  
-  return e.data;
+	edata_init(&e);
+	curl = my_curl_init(url);
+	if(curl) {
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
+		/*res = */curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+	}
+
+	return e.data;
+}
+
+long http_delete(const char * url)
+{
+	CURL *curl;
+	CURLcode res = -1;
+	long sc = 500;
+
+
+	curl = my_curl_init(url);
+	if(curl) {
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,"DELETE");
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, throw_data);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
+		res = curl_easy_perform(curl);
+		if(res==0) curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &sc);
+		curl_easy_cleanup(curl);
+	}
+
+	return sc;
 }
 
 char *  http_fetchf(const char * fmt, ...)
@@ -126,10 +144,10 @@ int http_fetch_file(const char * url, const char * dest, int append)
 
 void post_add(postdata_t buf, const char * name, const char * val)
 {
-  curl_formadd(&buf->post, &buf->last, 
-    CURLFORM_COPYNAME, name,
-    CURLFORM_COPYCONTENTS, val,
-    CURLFORM_END);
+	curl_formadd(&buf->post, &buf->last, 
+		CURLFORM_COPYNAME, name,
+		CURLFORM_COPYCONTENTS, val,
+		CURLFORM_END);
 }
 
 long post_addfile(postdata_t pd, const char * name, const char * tmpfile)
@@ -163,6 +181,55 @@ char * post_addfile_part(postdata_t pd, const char * name,
 char * http_post(const char * url, postdata_t pd)
 {
 	CURL *curl;
+	//CURLcode res = -1;
+	edata e;
+
+	edata_init(&e);
+	curl = my_curl_init(url);
+	if(curl) {
+		curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
+		/*res = */curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+	}
+
+	return e.data;
+}
+
+char * do_http_with_fields(const char * url, const char * fields, const char * method)
+{
+	CURL *curl;
+	//CURLcode res = -1;
+	edata e;
+
+	edata_init(&e);
+	curl = my_curl_init(url);
+	if(curl) {
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,method);
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, fields);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
+		/*res = */curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+	}
+
+	return e.data;
+}
+
+char * http_post_fields(const char * url, const char * fields)
+{
+	return do_http_with_fields(url, fields, "POST");
+}
+
+char * http_put_fields(const char * url, const char * fields)
+{
+	return do_http_with_fields(url, fields, "PUT");
+}
+
+char * http_postfile(const char * url, postdata_t pd)
+{
+	CURL *curl;
 	CURLcode res = -1;
 	edata e;
 
@@ -172,29 +239,9 @@ char * http_post(const char * url, postdata_t pd)
 		curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
-		res = curl_easy_perform(curl);
+		/*res = */curl_easy_perform(curl);
 		curl_easy_cleanup(curl);
 	}
 
 	return e.data;
-}
-
-char * http_postfile(const char * url, postdata_t pd)
-{
-  CURL *curl;
-  CURLcode res = -1;
-  edata e;
-
-  edata_init(&e);
-  curl = my_curl_init(url);
-  if(curl) {
-	curl_easy_setopt(curl, CURLOPT_HTTPPOST, pd->post);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
-    res = curl_easy_perform(curl);
-
-    curl_easy_cleanup(curl);
-  }
-
-  return e.data;
 }

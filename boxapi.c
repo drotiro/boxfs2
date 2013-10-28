@@ -20,7 +20,6 @@
 #include <string.h>
 #include <errno.h>
 #include <libgen.h>
-#include <termios.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <string.h>
@@ -46,86 +45,25 @@
 //    CALLS
 #define API_ENDPOINT	"https://api.box.com/2.0/"
 #define API_LS		API_ENDPOINT "folders/"
+#define API_FILES	API_ENDPOINT "files/%s"
 #define API_INFO	API_ENDPOINT "users/me"
-#define API_DOWNLOAD	API_ENDPOINT "files/%s/content"
+#define API_DOWNLOAD	API_FILES    "/content"
 #define API_UPLOAD      "https://upload.box.com/api/2.0/files/content"
 #define API_UPLOAD_VER  "https://upload.box.com/api/2.0/files/%s/content"
+//    POST DATA
+#define POST_CREATEDIR  "{\"name\":\"%s\", \"parent\": {\"id\": \"%s\"}}"
+#define POST_RENAME     "{\"name\":\"%s\"}"
+#define POST_MOVE       "{\"parent\": {\"id\": \"%s\"}}"
 //    UTILS
 #define BUFSIZE 1024
-// -- v1 --
-//#define API_KEY_VAL "2uc9ec1gtlyaszba4h6nixt7gyzq3xir"
-#define API_KEY "&api_key=" API_KEY_VAL
-#define API_TOKEN API_KEY "&auth_token="
-#define API_REST_BASE "://www.box.net/api/1.0/rest?action="
-#define API_GET_ACCOUNT_TREE API_REST_BASE "get_account_tree&folder_id=0" API_TOKEN
-#define API_GET_ACCOUNT_TREE_OK "listing_ok"
-//#define API_DOWNLOAD "://www.box.net/api/1.0/download/"
-//#define API_UPLOAD "://upload.box.net/api/1.0/upload/"
-#define API_CREATE_DIR API_REST_BASE "create_folder" API_TOKEN
-#define API_CREATE_DIR_OK "create_ok"
-#define API_RENAME API_REST_BASE "rename" API_TOKEN
-#define API_RENAME_OK "s_rename_node"
-#define API_MOVE API_REST_BASE "move" API_TOKEN
-#define API_MOVE_OK "s_move_node"
-#define API_UNLINK API_REST_BASE "delete&target=file" API_TOKEN
-#define API_UNLINK_OK "s_delete_node"
-#define API_RMDIR API_REST_BASE "delete&target=folder" API_TOKEN
-#define API_RMDIR_OK API_UNLINK_OK 
-#define API_LOGOUT API_REST_BASE "logout" API_KEY "&auth_token="
 
 #define LOCKDIR(dir) pthread_mutex_lock(dir->dirmux);
 #define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); 
 
 /* globals, written during initialization */
 char *auth_token = NULL, *refresh_token = NULL;
-char treefile[] = "/tmp/boxXXXXXX";
 long long tot_space, used_space;
 struct box_options_t options;
-
-char * tag_value(const char * buf, const char * tag)
-{
-  char * tmp;
-  char * sp, * ep;
-  
-  sp = strstr(buf,tag)+strlen(tag)+1;
-  ep = strstr(sp,"<");
-  tmp =malloc(ep-sp+1);
-  strncpy(tmp, sp, ep-sp);
-  tmp[ep-sp]=0;
-  
-  return tmp;
-}
-
-
-long long tag_lvalue(const char * buf, const char * tag)
-{
-  char * tmp;
-  long long rv;
-  
-  tmp = tag_value(buf, tag);
-  rv = atoll(tmp);
-  free(tmp);
-  
-  return rv;  
-}
-
-char * attr_value(const char * buf, const char * attr)
-{
-  char * tmp;
-  char * sp, * ep;
-  char ss[24];
-
-  sprintf(ss,"%s=\"", attr);
-  sp = strstr(buf,ss);// +strlen(ss);
-  if(!sp) return NULL;
-  else sp = sp + strlen(ss);
-  ep = strstr(sp,"\"");
-  tmp =malloc(ep-sp+1);
-  strncpy(tmp, sp, ep-sp);
-  tmp[ep-sp]=0;
-
-  return tmp;
-}
 
 int ends_with(const char * str, const char * suff)
 {
@@ -298,46 +236,55 @@ void api_getusage(long long * tot_sp, long long * used_sp)
 
 int api_createdir(const char * path)
 {
-  int res = 0;
-  boxpath * bpath;
-  boxdir *newdir;
-  boxfile * aFile;
-  char * dirid, *buf, *status;
+	int res = 0;
+	boxpath * bpath;
+	boxdir *newdir;
+	boxfile * aFile;
+	char * dirid = NULL, *buf = NULL;
+	jobj * folder = NULL;
+	char fields[BUFSIZE]="";
 
-  bpath = boxpath_from_string(path);
-  if(bpath->dir) {
-	//syslog(LOG_WARNING, "creating dir %s (escaped: %s) ",base,xmlURIEscapeStr(base,""));
-    buf = http_fetchf(API_CREATE_DIR "%s&parent_id=%s&name=%s&share=0", 
-          auth_token, bpath->dir->id, xmlURIEscapeStr(bpath->base,""));
-    status = node_value(buf,"status");
-    if(strcmp(status,API_CREATE_DIR_OK)) {
-      res = -EINVAL;
-      free(buf); free(status);
-      boxpath_free(bpath);
-      return res;
-    }
-    free(status);
+	bpath = boxpath_from_string(path);
+	if(bpath->dir) {
+		snprintf(fields, BUFSIZE, POST_CREATEDIR,
+		        bpath->base, bpath->dir->id);
 
-    dirid = tag_value(buf,"folder_id");
-    free(buf);
-    
-    // aggiungo 1 entry all'hash
-    newdir = boxdir_create();
-    newdir->id = dirid;
-    xmlHashAddEntry(allDirs, path, newdir);
-    // upd parent
-    aFile = boxfile_create(bpath->base);
-    aFile->id = strdup(dirid);
-    LOCKDIR(bpath->dir);
-    list_append(bpath->dir->folders, aFile);
-    UNLOCKDIR(bpath->dir);    
-  } else {
-    syslog(LOG_WARNING, "UH oh... wrong path %s",path);
-    res = -EINVAL;
-  }
-  boxpath_free(bpath);
+		buf = http_post_fields(API_LS, fields);
 
-  return res;
+		if(buf) { 
+			folder = jobj_parse(buf); 
+			free(buf);
+		}
+		if(folder) {
+		        dirid = jobj_getval(folder, "id");
+        		free(folder);
+                }
+
+		if(!dirid) {
+			res = -EINVAL;
+			boxpath_free(bpath);
+			return res;
+		}
+
+		// add 1 entry to the hash table
+		newdir = boxdir_create();
+		newdir->id = dirid;
+		xmlHashAddEntry(allDirs, path, newdir);
+		// upd parent
+		aFile = boxfile_create(bpath->base);
+		aFile->id = strdup(dirid);
+		LOCKDIR(bpath->dir);
+		list_append(bpath->dir->folders, aFile);
+		UNLOCKDIR(bpath->dir);    
+		// invalidate cached parent entry
+		cache_rm(bpath->dir->id);
+	} else {
+		syslog(LOG_WARNING, "UH oh... wrong path %s",path);
+		res = -EINVAL;
+	}
+	boxpath_free(bpath);
+
+	return res;
 }
 
 
@@ -418,7 +365,7 @@ void set_partdata(const boxpath * bpath, char * res, const char * partname)
 
 int api_open(const char * path, const char * pfile){
 	int res = 0;
-	char gkurl[BUFSIZE]="";
+	char url[BUFSIZE]="";
 	boxfile * aFile;
 	list_iter it;
 	boxpath * bpath = boxpath_from_string(path);
@@ -426,8 +373,8 @@ int api_open(const char * path, const char * pfile){
 	if(!boxpath_getfile(bpath)) res = -ENOENT;
   
 	if(!res) {
-		sprintf(gkurl, API_DOWNLOAD, bpath->file->id);
-		res = http_fetch_file(gkurl, pfile, FALSE);
+		sprintf(url, API_DOWNLOAD, bpath->file->id);
+		res = http_fetch_file(url, pfile, FALSE);
 		//NOTE: we could check for bpath->file->size > PART_LEN, but
 		//checking filesize is more robust, since PART_LEN may change in
 		//future, or become configurable.
@@ -435,9 +382,9 @@ int api_open(const char * path, const char * pfile){
 			//download of other parts
 			for(it = boxpath_first_part(bpath); it ; it=boxpath_next_part(bpath, it)) {
 				aFile = (boxfile*) list_iter_getval(it);
-				snprintf(gkurl, BUFSIZE, API_DOWNLOAD, aFile->id);
+				snprintf(url, BUFSIZE, API_DOWNLOAD, aFile->id);
 				if(options.verbose) syslog(LOG_DEBUG, "Appending file part %s", aFile->name);
-				http_fetch_file(gkurl, pfile, TRUE);
+				http_fetch_file(url, pfile, TRUE);
 			}
 		}
 	}
@@ -513,19 +460,20 @@ int api_getattr(const char *path, struct stat *stbuf)
 int api_removedir(const char * path)
 {
   int res = 0;
+  char url[BUFSIZE]="";
+  long sc;
   boxpath * bpath = boxpath_from_string(path);
-  if(!boxpath_getfile(bpath)) return -EINVAL;
-  
-  char *buf, *status;
-  
+
+  /* check that is a dir */
+  if(!boxpath_getfile(bpath)) return -EINVAL;  
   if(!bpath->dir && !bpath->is_dir) return -ENOENT;
-  buf = http_fetchf(API_RMDIR "%s&target_id=%s", auth_token, bpath->file->id);
-  status = node_value(buf,"status");
-  if(strcmp(status,API_UNLINK_OK)) {
+
+  snprintf(url, BUFSIZE, API_LS "%s", bpath->file->id);
+  sc = http_delete(url);
+
+  if(sc != 204) {
     res = -EPERM;
   }
-  free(status);
-  free(buf);
 
   if(!res) {
     //remove it from parent's subdirs...
@@ -534,6 +482,8 @@ int api_removedir(const char * path)
     UNLOCKDIR(bpath->dir);
     //...and from dir list
     xmlHashRemoveEntry(allDirs, path, NULL);
+    // invalidate parent cache entry
+    cache_rm(bpath->dir->id);
   }
   
   boxpath_free(bpath);  
@@ -548,14 +498,13 @@ int api_removedir(const char * path)
 int do_removefile_id(const char * id)
 {
 	int res = 0;
-	char *buf, *status;
+	long sc;
+	char url[BUFSIZE]="";
 	
-	buf = http_fetchf(API_UNLINK "%s&target_id=%s", auth_token, id);
-	status = node_value(buf,"status");
-	if(strcmp(status,API_UNLINK_OK)) res = -ENOENT;
+	snprintf(url, BUFSIZE, API_FILES, id);
+	sc = http_delete(url);
+	if(sc != 204) res = -ENOENT;
 	
-	free(status);
-	free(buf);
 	return res;
 }
 
@@ -572,7 +521,7 @@ int api_removefile(const char * path)
 
 		if(res==0) {
 			if(options.splitfiles && list_size(bpath->dir->pieces)) {
-				list_iter prev,cur;
+				list_iter cur;
 				boxfile * part;
 
 				//remove parts
@@ -580,7 +529,7 @@ int api_removefile(const char * path)
 					part = (boxfile*) list_iter_getval(cur);
 					if (options.verbose) syslog(LOG_DEBUG, "removing part %s", part->name);
 					do_removefile_id(part->id);
-					prev = cur; cur = boxpath_next_part(bpath, cur);
+					cur = boxpath_next_part(bpath, cur);
 					list_delete_item(bpath->dir->pieces, part);
 				}
 			}
@@ -589,6 +538,8 @@ int api_removefile(const char * path)
 			LOCKDIR(bpath->dir);
 			boxpath_removefile(bpath);
 			UNLOCKDIR(bpath->dir);
+			//invalidate cache entry
+			cache_rm(bpath->dir->id);
 		}
 	}
 	
@@ -598,29 +549,13 @@ int api_removefile(const char * path)
 }
 
 //Move and rename funcs, new version
-int do_api_move_id(int is_dir, const char * srcid, const char * dstid)
-{
-	char * buf = NULL, * status;
-	int res = 0;
-
-	buf = http_fetchf(API_MOVE "%s&target=%s&target_id=%s&destination_id=%s", 
-		  auth_token, (is_dir ? "folder" : "file"), srcid, dstid);
-	status = node_value(buf,"status");
-	if(strcmp(status,API_MOVE_OK)) {
-	  res = -EINVAL;
-	}
-
-	free(status); free(buf);
-	return res;
-}
-
 int do_api_move(boxpath * bsrc, boxpath * bdst)
 {
 	int res = 0;
 	list_iter it;
 
 	LOCKDIR(bsrc->dir);
-	res = do_api_move_id(bsrc->is_dir, bsrc->file->id, bdst->dir->id);
+	res = do_api_move_id(bsrc->is_dir, bsrc->file->id, bdst->dir->id, FALSE);
 	if(!res) {
 		boxfile * part;
 		//take care of parts, if any
@@ -628,7 +563,7 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 			for(it = boxpath_first_part(bsrc); it; it = boxpath_next_part(bsrc, it)) {
 				part = (boxfile*)list_iter_getval(it);
 				if(options.verbose) syslog(LOG_DEBUG, "Moving part %s", part->name);
-				do_api_move_id(FALSE, part->id, bdst->dir->id);
+				do_api_move_id(FALSE, part->id, bdst->dir->id, FALSE);
 				list_insert_sorted_comp(bdst->dir->pieces, part, filename_compare);
 				list_delete_item(bsrc->dir->pieces, part);				
 			}
@@ -644,21 +579,32 @@ int do_api_move(boxpath * bsrc, boxpath * bdst)
 	return res;
 }
 
-int do_api_rename_id(int is_dir, const char * id, const char * base)
+int do_api_move_id(int is_dir, const char * id, const char * dest, int is_rename)
 {
-	char * buf = NULL, * status;
-	int res = 0;
-
-	buf = http_fetchf(API_RENAME "%s&target=%s&target_id=%s&new_name=%s",
-		  auth_token, (is_dir ? "folder" : "file"),
-		  id, xmlURIEscapeStr(base,""));
-	status = node_value(buf,"status");
-	if(strcmp(status,API_RENAME_OK)) {
-		res = -EINVAL;
+        char url[BUFSIZE], fields[BUFSIZE], * buf, * type;
+        int res = 0;
+        jobj * obj;
+        
+        if(is_dir) {
+                snprintf(url, BUFSIZE, API_LS "%s", id);
+        } else {
+                snprintf(url, BUFSIZE, API_FILES, id);
+        }
+        if(is_rename) {
+		snprintf(fields, BUFSIZE, POST_RENAME, dest);
+	} else {
+		snprintf(fields, BUFSIZE, POST_MOVE, dest);
 	}
 
-	free(status);free(buf);
-	return res;	
+        buf = http_put_fields(url, fields);
+        obj = jobj_parse(buf);
+        type = jobj_getval(obj, "type");
+        if(strcmp(type, is_dir ? "folder" : "file")) res = -EINVAL;
+        
+        if(type) free(type);
+        free(buf);
+        jobj_free(obj);
+        return res;
 }
 
 int do_api_rename(boxpath * bsrc, boxpath * bdst)
@@ -666,11 +612,11 @@ int do_api_rename(boxpath * bsrc, boxpath * bdst)
 	int res;
 	
 	LOCKDIR(bsrc->dir);
-	res = do_api_rename_id(bsrc->is_dir, bsrc->file->id, bdst->base);
+	res = do_api_move_id(bsrc->is_dir, bsrc->file->id, bdst->base, TRUE);
 	if(!res) {
 		boxfile * part;
 		char * newname;
-		list_iter it, prev;
+		list_iter it;
 		int ind=1;
 		//take care of parts, if any
 		if(options.splitfiles && !bsrc->is_dir && list_size(bsrc->dir->pieces))
@@ -679,8 +625,8 @@ int do_api_rename(boxpath * bsrc, boxpath * bdst)
 				newname = malloc(strlen(bdst->base)+ PART_SUFFIX_LEN +4);
 				sprintf(newname, "%s.%.2d" PART_SUFFIX, bdst->base, ind++);
 				if(options.verbose) syslog(LOG_DEBUG, "Renaming part %s to %s", part->name, newname);
-				do_api_rename_id(FALSE, part->id, newname);
-				prev = it; it = boxpath_next_part(bsrc, it);
+				do_api_move_id(FALSE, part->id, newname, TRUE);
+				it = boxpath_next_part(bsrc, it);
 				list_delete_item(bsrc->dir->pieces, part);
 				part->name = newname;
 				list_insert_sorted_comp(bsrc->dir->pieces, part, filename_compare);
@@ -711,6 +657,9 @@ int api_rename_v2(const char * from, const char * to)
 	    boxtree_movedir(from, to);
 	}
 
+	// invalidate cache entries
+	cache_rm(bsrc->dir->id);
+	if(bsrc->dir!=bdst->dir) cache_rm(bdst->dir->id);
 	boxpath_free(bsrc);
 	boxpath_free(bdst);
 	return res;
@@ -723,7 +672,7 @@ void api_upload(const char * path, const char * tmpfile)
   off_t fsize;
   size_t start, len;
   int oldver;
-  jobj * part;
+  //UNUSED jobj * part;
   boxpath * bpath = boxpath_from_string(path);
 
   if(bpath->dir) {
@@ -738,9 +687,10 @@ void api_upload(const char * path, const char * tmpfile)
     if(options.splitfiles && fsize > PART_LEN) {
         post_addfile_part(buf, bpath->base, tmpfile, 0, PART_LEN);
         res = http_postfile(API_UPLOAD, buf);
-        //fid = attr_value(res,"id");
+
         set_filedata(bpath ,res, fsize);
         free(res);
+
         start = PART_LEN;
         while(start < fsize-1) {
             post_free(buf); buf = post_init();
@@ -753,7 +703,6 @@ void api_upload(const char * path, const char * tmpfile)
             len = MIN(PART_LEN, fsize-start);
             pr = post_addfile_part(buf, partname, tmpfile, start, len);
             res = http_postfile(API_UPLOAD, buf);
-            //fid = attr_value(res,"id");
             set_partdata(bpath, res, partname);
 
             free(pr); free(res); free(partname);
@@ -763,13 +712,13 @@ void api_upload(const char * path, const char * tmpfile)
     	//normal upload
     	post_addfile(buf, bpath->base, tmpfile);
     	if(oldver) {
-    	        char gkurl[BUFSIZE]="";
-    	        snprintf(gkurl, BUFSIZE, API_UPLOAD_VER, bpath->file->id);
-    	        res = http_postfile(gkurl, buf);
+    	        char url[BUFSIZE]="";
+    	        snprintf(url, BUFSIZE, API_UPLOAD_VER, bpath->file->id);
+    	        res = http_postfile(url, buf);
         } else {
                 res = http_postfile(API_UPLOAD, buf);
         }
-	//fid = attr_value(res,"id");
+
 	set_filedata(bpath ,res, fsize);
 	free(res);
     }

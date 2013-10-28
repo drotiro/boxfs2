@@ -26,13 +26,17 @@ char *	http_fetch(const char * url);
 char *	http_fetchf(const char * fmt, ...);
 int	http_fetch_file(const char * url, const char * dest, int append);
 
-/* Data POSTing */
+/* Data POSTing and other http requests */
 void post_add(postdata_t buf, const char * name, const char * val);
 long post_addfile(postdata_t rbuf, const char * name, const char * tmpfile);
 char * post_addfile_part(postdata_t rbuf, const char * name,
         const char * tmpfile, size_t offset, size_t len);
+
 char * http_post(const char * url, postdata_t data);
 char * http_postfile(const char * url, postdata_t data);
+char * http_post_fields(const char * url, const char * fields);
+char * http_put_fields(const char * url, const char * fields);
+long   http_delete(const char * url);
 
 /* Authentication */
 void update_auth_header(const char * auth_token);
