@@ -27,9 +27,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#include <libxml/uri.h>
+#include <libxml/hash.h>
 
 #include <libapp/app.h>
 /* Building blocks for OpenBox api endpoints
@@ -94,39 +92,6 @@ void api_free()
   
 	xmlCleanupParser();
 	if(allDirs) xmlHashFree(allDirs, NULL); // TODO: Deallocator!
-}
-
-/* only for 1st level nodes! */
-char * node_value(const char * buf, const char * name)
-{
-
-  char * val = NULL;
-  
-  xmlDoc *doc = NULL;
-  xmlNode *root_element = NULL;
-  xmlNode *cur_node = NULL;
-  
-  doc = xmlReadDoc(buf, "noname.xml",NULL, 0);
-
-  root_element = xmlDocGetRootElement(doc);
-  if(!root_element) {
-    if(doc) xmlFreeDoc(doc);
-    return val;
-  }
-
-  for(cur_node = root_element->children; cur_node && !val; cur_node = cur_node->next) {
-      if (cur_node->type == XML_ELEMENT_NODE) {
-        if(!strcmp(name,cur_node->name)) { 
-          // a nice thing of text nodes :(((
-          val = (cur_node->content ? strdup(cur_node->content) : 
-                            strdup(cur_node->children->content)); 
-        }
-      }
-  }
-  
-  xmlFreeDoc(doc);
-   
-  return val;   
 }
 
 /* APIv2 
