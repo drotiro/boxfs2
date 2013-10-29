@@ -33,6 +33,9 @@ The first time you run boxfs, you will need to complete the authentication
 (oauth2) process and grant access to your box.com account. It's easy, just
 follow the instructions on the terminal and on your browser.
 
+The first mount can be quite slow because boxfs will fetch and cache info
+(metadata, not file contents!) about your folders.
+
 
 	Usage: boxfs [options] [mountpoint]
 	

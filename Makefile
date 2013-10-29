@@ -23,6 +23,7 @@ clean:
 
 install: boxfs
 	install -s boxfs $(BINDIR)
+	install boxfs-init $(BINDIR)
 
 # Check required programs
 PKG_CONFIG_VER := $(shell pkg-config --version 2>/dev/null)

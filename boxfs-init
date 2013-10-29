@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+BOXDIR=$HOME/.boxfs
+CONF=conf
+CACHE=cache
+
+if [ $# -gt 0 ]; then BOXDIR=$1; fi
+
+if [ -d $BOXDIR -o -f $BOXDIR ]; then
+	echo "Path $BOXDIR already exists! Exiting."
+	exit 1
+fi
+
+ANS="boh"
+until [ "$ANS" == "yes" -o "$ANS" == "no" ];
+do
+	echo -n "Chosen folder: $BOXDIR. Is this correct [yes|no]? "
+	read ANS
+done
+
+if [ "$ANS" == "no" ]; then
+	echo "Exiting without creating directory. Try again!"
+	exit 0
+fi
+
+mkdir $BOXDIR
+mkdir $BOXDIR/$CACHE
+echo "
+# Conf file for boxfs
+# edit to fit your needs.
+
+# Put oauth2 tokens here:
+token_file = $BOXDIR/token
+
+# Set a valid mount point
+#mountpoint = $HOME/box.com
+
+verbose    = no
+largefiles = no
+cache_dir  = $BOXDIR/$CACHE
+
+# Configure your uid and gid below:
+#uid = 1000
+#gid = 1000
+fperm = 644
+dperm = 755
+
+" >$BOXDIR/$CONF
+
+echo
+echo "Configuration file generated in $BOXDIR/$CONF"
+echo "Take a look and customize as needed, then run:"
+echo " boxfs -f $BOXDIR/$CONF"
+
