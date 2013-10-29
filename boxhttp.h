@@ -6,7 +6,7 @@
 #include "boxapi.h"
 
 /* 2010-02-03 Domenico Rotiroti
-   Licensed under the GPLv2
+   Licensed under the GPLv3
 
    HTTP(S) transfer functions and related utilities
 */

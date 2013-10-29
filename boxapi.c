@@ -3,7 +3,7 @@
   DR: Interazione con il sito
   
   This software is licensed under the 
-  GPLv2 license.
+  GPLv3 license.
 
 ***************************************/
 

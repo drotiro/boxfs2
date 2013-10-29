@@ -2,7 +2,7 @@
 #define BOXPATH_H
 
 /* 2009-10-20 Domenico Rotiroti
-   Licensed under the GPLv2
+   Licensed under the GPLv3
 
    This file contains all the path-related types
    and functions.

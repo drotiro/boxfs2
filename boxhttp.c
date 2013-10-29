@@ -1,5 +1,5 @@
 /**************************
- Licensed under the GPLv2
+ Licensed under the GPLv3
 **************************/
 
 #include <curl/curl.h>

@@ -3,7 +3,7 @@
 
 /*
   This software is licensed under the
-    GPLv2 license.
+    GPLv3 license.
 */
 
 #include <fuse.h>

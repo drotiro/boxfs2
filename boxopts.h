@@ -2,7 +2,7 @@
 #define BOXOPTS_H
 
 /* 2010-02-04 Domenico Rotiroti
-   Licensed under the GPLv2
+   Licensed under the GPLv3
 
    Config file parsing and command line options
 */

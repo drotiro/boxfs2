@@ -4,7 +4,7 @@
       data structures and functions
 
   This software is licensed under the 
-  GPLv2 license.
+  GPLv3 license.
 
 *************************************/
 

@@ -2,7 +2,7 @@
     BOXFS: A FUSE-based filesystem to access a box.net account.
         This file is based on fusexmp.c by Miklos Szeredi
   
-  This software is licensed under the GPLv2 license.
+  This software is licensed under the GPLv3 license.
 */
 
 #define FUSE_USE_VERSION 26

@@ -2,7 +2,7 @@
 #define BOXJSON_H
 
 /* 2013-10-18 Domenico Rotiroti
- *    Licensed under the GPLv2
+ *    Licensed under the GPLv3
  *
  *    JSON parsing and traversing
  *    functions.
