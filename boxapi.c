@@ -40,7 +40,7 @@
 #define API_KEY_VAL "f9ss11y2w0hg5r04jsidxlhk4pil28cf"
 #define API_SECRET  "r3ZHAIhsOL2FoHjgERI9xf74W5skIM0w"
 #define API_OAUTH_URL "https://www.box.com/api/oauth2/"
-#define API_OAUTH_AUTHORIZE API_OAUTH_URL "authorize?response_type=code&client_id=" API_KEY_VAL "&redirect_uri=http%3A//localhost"
+#define API_OAUTH_AUTHORIZE API_OAUTH_URL "authorize?response_type=code&client_id=" API_KEY_VAL /*"&redirect_uri=http%3A//localhost"*/
 #define API_OAUTH_TOKEN     API_OAUTH_URL "token"
 //    CALLS
 #define API_ENDPOINT	"https://api.box.com/2.0/"

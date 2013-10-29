@@ -1,0 +1,75 @@
+			BOXFS
+	A FUSE-based filesystem to access 
+	files on a box.net account.
+
+This software is licensed under the GPLv2 Licence and
+comes with NO WARRANTY. Use at your own risk.
+
+Important note
+==============
+The OpenBox site says that "V1 of the Box API will End Life on Dec 14th 2013",
+so after that date boxfs will stop working, at least until someone port it to
+the V2 api.
+
+Compiling
+=========
+
+Unpack the source tarball and run make in the resulting dir.
+You need FUSE and libxml2 (most distros come with them installed),
+libzip and libapp.
+See the project wiki for more detailed information:
+<http://code.google.com/p/boxfs/wiki/Compiling> 
+
+Usage
+=====
+
+Usage: boxfs [options] [mountPoint] 
+
+Options:
+  -u --username   login       box.net login name
+  -p --password   password    box.net password
+  -f              conffile    file containing configuration options
+  -l --largefiles             enable support for large files (splitting)
+  -v --verbose                turn on verbose syslogging
+  -s --secure                 turn on secure connections (HTTPS) to box.net
+  -U --uid                    user id to use as file owner (defaults to you)
+  -G --gid                    group id to use for group permissions
+  -F --fperm                  file permissions (default 0644)
+  -D --dperm                  directory permissions (default 0755)
+
+Configuration file example:
+username   = mymail@mydomain.com
+password   = secret
+mountpoint = /path/to/folder
+verbose    = no
+secure     = no
+largefiles = no
+uid        = 1000
+gid        = 100
+fperm      = 642
+
+Lines beginning with '#' are treated as comments and ignored.
+
+If username and/or password are not specified in the command line or in configuration file,
+boxfs will prompt for them at run time.
+The mountpoint must be provided, after the other options or in the configuration file.
+
+When you've done using your files, unmount your filsystem
+with fusermount -u mountpoint
+
+Authors and Contributors
+========================
+
+Boxfs is written by Domenico Rotiroti <pinguino(@)thesaguaros.com> with
+contributions from:
+* Alexander Gromnitsky
+* Laurento Frittella
+* Wei-Ren Huang
+* Alexander Ryapolov
+
+Known problems/limitations
+==========================
+
+Tags and sharing informations are not handled.
+
+For any questions write me at pinguino(@)thesaguaros.com.

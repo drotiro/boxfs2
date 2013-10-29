@@ -1,75 +1,65 @@
-			BOXFS
-	A FUSE-based filesystem to access 
-	files on a box.net account.
-
-This software is licensed under the GPLv2 Licence and
-comes with NO WARRANTY. Use at your own risk.
-
-Important note
-==============
-The OpenBox site says that "V1 of the Box API will End Life on Dec 14th 2013",
-so after that date boxfs will stop working, at least until someone port it to
-the V2 api.
-
-Compiling
-=========
-
-Unpack the source tarball and run make in the resulting dir.
-You need FUSE and libxml2 (most distros come with them installed),
-libzip and libapp.
-See the project wiki for more detailed information:
-<http://code.google.com/p/boxfs/wiki/Compiling> 
-
-Usage
+BOXFS
 =====
 
-Usage: boxfs [options] [mountPoint] 
+A FUSE-based filesystem for box.com.
 
-Options:
-  -u --username   login       box.net login name
-  -p --password   password    box.net password
-  -f              conffile    file containing configuration options
-  -l --largefiles             enable support for large files (splitting)
-  -v --verbose                turn on verbose syslogging
-  -s --secure                 turn on secure connections (HTTPS) to box.net
-  -U --uid                    user id to use as file owner (defaults to you)
-  -G --gid                    group id to use for group permissions
-  -F --fperm                  file permissions (default 0644)
-  -D --dperm                  directory permissions (default 0755)
+This software is licensed under the GPLv3 Licence and comes with NO WARRANTY.
+Use at your own risk. See gpl-3.0.txt.
 
-Configuration file example:
-username   = mymail@mydomain.com
-password   = secret
-mountpoint = /path/to/folder
-verbose    = no
-secure     = no
-largefiles = no
-uid        = 1000
-gid        = 100
-fperm      = 642
+Boxfs use the v2 version of box.com api (see http://developers.box.com/docs/),
+older versions used the v1 api.
 
-Lines beginning with '#' are treated as comments and ignored.
+Compiling
+---------
 
-If username and/or password are not specified in the command line or in configuration file,
-boxfs will prompt for them at run time.
-The mountpoint must be provided, after the other options or in the configuration file.
+ * Get the sources from GitHub: `git clone https://github.com/drotiro/boxfs2.git`
+ * Make sure you have all the needed dependencies:
+ * * fuse
+ * * libcurl
+ * * libxml2
+ * * libapp  - https://github.com/drotiro/libapp
+ * * libjson - https://github.com/vincenthz/libjson/
+ * Type `make` and then `sudo make install`
+
+Usage
+-----
+
+Boxfs can read options from command line or from a config file.
+
+The simplest way to start is to run the script `boxfs-init` and let it create
+a configuration file for you.
+
+The first time you run boxfs, you will need to complete the authentication
+(oauth2) process and grant access to your box.com account. It's easy, just
+follow the instructions on the terminal and on your browser.
+
+
+	Usage: boxfs [options] [mountpoint]
+	
+	Options:
+	  -f              conffile    file containing configuration options
+	  -t --token_file tokenfile   file used to store oauth2 tokens
+	  -l --largefiles             enable support for large files (splitting)
+	  -v --verbose                turn on verbose syslogging
+	  -U --uid                    user id to use as file owner (defaults to you)
+	  -G --gid                    group id to use for group permissions
+	  -F --fperm                  file permissions (default 0644)
+	  -D --dperm                  directory permissions (default 0755)
+	
+
 
 When you've done using your files, unmount your filsystem
-with fusermount -u mountpoint
+with `fusermount -u mountpoint`
 
 Authors and Contributors
 ========================
 
-Boxfs is written by Domenico Rotiroti <pinguino(@)thesaguaros.com> with
-contributions from:
-* Alexander Gromnitsky
-* Laurento Frittella
-* Wei-Ren Huang
-* Alexander Ryapolov
+Boxfs is written by Domenico Rotiroti.
+See README.V1 for a list of people who helped in the previous releases.
 
 Known problems/limitations
 ==========================
 
-Tags and sharing informations are not handled.
-
-For any questions write me at pinguino(@)thesaguaros.com.
+ * Sharing, tags and other file metadata are not handled
+ * Updates made from outside boxfs are not visible until remount
+ * Can't create empty files
