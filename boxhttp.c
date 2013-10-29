@@ -15,6 +15,18 @@
 #define MAXBUF 4096
 
 static struct curl_slist *headers = NULL;
+/* Don't share this between threads! */
+static CURL * conn = NULL; 
+static int conn_reuse = 0;
+
+void set_conn_reuse(int reuse)
+{
+	conn_reuse = reuse;
+	if(!reuse) {
+		curl_easy_cleanup(conn);
+		conn = NULL;
+	}
+}
 
 /* Take care of Authentication header */
 void update_auth_header(const char * auth_token)
@@ -36,12 +48,23 @@ CURL * my_curl_init(const char * url)
 {
 	CURL * curl;
 
+	if(conn_reuse && conn) {
+		curl_easy_setopt(conn, CURLOPT_URL, url);
+		return conn;
+	}
+	
 	curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	if(headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 	
+	if(conn_reuse) conn = curl;
 	return curl;
+}
+
+void my_curl_cleanup(CURL * curl)
+{
+	if(!conn_reuse) curl_easy_cleanup(curl);
 }
 
 postdata_t post_init()
@@ -83,7 +106,7 @@ char * http_fetch(const char * url)
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
 		/*res = */curl_easy_perform(curl);
-		curl_easy_cleanup(curl);
+		my_curl_cleanup(curl);
 	}
 
 	return e.data;
@@ -103,7 +126,7 @@ long http_delete(const char * url)
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
 		res = curl_easy_perform(curl);
 		if(res==0) curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &sc);
-		curl_easy_cleanup(curl);
+		my_curl_cleanup(curl);
 	}
 
 	return sc;
@@ -136,7 +159,7 @@ int http_fetch_file(const char * url, const char * dest, int append)
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &dt);
     if(options.verbose) syslog(LOG_DEBUG, "Url %s fetched in %f seconds", url, dt);
 
-    curl_easy_cleanup(curl);
+    my_curl_cleanup(curl);
     fclose(fout);
   }
   return res;
@@ -191,7 +214,7 @@ char * http_post(const char * url, postdata_t pd)
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
 		/*res = */curl_easy_perform(curl);
-		curl_easy_cleanup(curl);
+		my_curl_cleanup(curl);
 	}
 
 	return e.data;
@@ -211,7 +234,7 @@ char * do_http_with_fields(const char * url, const char * fields, const char * m
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
 		/*res = */curl_easy_perform(curl);
-		curl_easy_cleanup(curl);
+		my_curl_cleanup(curl);
 	}
 
 	return e.data;
@@ -240,7 +263,7 @@ char * http_postfile(const char * url, postdata_t pd)
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fetch_append);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &e);
 		/*res = */curl_easy_perform(curl);
-		curl_easy_cleanup(curl);
+		my_curl_cleanup(curl);
 	}
 
 	return e.data;

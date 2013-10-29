@@ -40,6 +40,7 @@ long   http_delete(const char * url);
 
 /* Authentication */
 void update_auth_header(const char * auth_token);
+void set_conn_reuse(int reuse);
 
 #endif
 //BOXHTTP_H

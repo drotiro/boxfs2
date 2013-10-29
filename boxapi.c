@@ -781,6 +781,7 @@ int api_init(int* argc, char*** argv) {
   		jobj * root, *info;
   		
         	update_auth_header(auth_token);
+        	set_conn_reuse(TRUE);
         	buf = get_folder_info("0", false);
         	info = get_account_info();
         	root = jobj_parse(buf);
@@ -791,6 +792,7 @@ int api_init(int* argc, char*** argv) {
   		free(buf);
 
   		do_add_folder("/", "0");
+  		set_conn_reuse(FALSE);
 
   		syslog(LOG_INFO, "Filesystem mounted on %s", options.mountpoint);
 	}
