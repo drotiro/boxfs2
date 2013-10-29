@@ -230,7 +230,7 @@ char * http_put_fields(const char * url, const char * fields)
 char * http_postfile(const char * url, postdata_t pd)
 {
 	CURL *curl;
-	CURLcode res = -1;
+	//CURLcode res = -1;
 	edata e;
 
 	edata_init(&e);

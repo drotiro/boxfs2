@@ -172,18 +172,6 @@ void setup_root_dir(jobj * root, jobj * info)
 	rootDir->size = jobj_getlong(root, "size");
 	rootDir->ctime = jobj_gettime(info, "created_at");
 	rootDir->mtime = jobj_gettime(info, "modified_at");
-/*
-	xmlAttrPtr attrs;
-
-	rootDir = (boxfile*) malloc(sizeof(boxfile));
-	rootDir->size = 0;
-	rootDir->name = strdup("/");
-	for (attrs = cur_node->properties; attrs; attrs = attrs->next) {
-		if(!strcmp(attrs->name,"created")) rootDir->ctime = atol(attrs->children->content);
-		else if(!strcmp(attrs->name,"updated")) rootDir->mtime = atol(attrs->children->content);
-		else if(!strcmp(attrs->name,"size")) rootDir->size = atol(attrs->children->content);
-	}
-*/
 }
 
 boxfile * obj_to_file(jobj * obj)
@@ -217,7 +205,7 @@ boxdir * boxtree_add_folder(const char * path, const char * id, jobj * folder)
 	aDir = boxdir_create();
 	aDir->id = strdup(id);
 	
-	syslog(LOG_DEBUG, "Adding %s", path);
+	if(options.verbose) syslog(LOG_DEBUG, "Adding %s", path);
 	obj = jobj_get(folder, "entries");
 	it = list_get_iter(obj->children);
 	for(; it; it = list_iter_next(it)) {
@@ -226,65 +214,33 @@ boxdir * boxtree_add_folder(const char * path, const char * id, jobj * folder)
 
         	type = jobj_getval(item, "type");
         	if(!strcmp(type,"folder")) list_append(aDir->folders, aFile);
-        	else list_append(aDir->files, aFile);
+        	else {
+        		if(options.splitfiles && ends_with(aFile->name, PART_SUFFIX))
+        			list_insert_sorted_comp(aDir->pieces, aFile, filename_compare);
+			else list_append(aDir->files, aFile);
+		}
         	free(type);
 	}
 	
+	if(options.splitfiles) {
+        	it = list_get_iter(aDir->files);
+        	pit = list_get_iter(aDir->pieces);
+        	
+        	for(; pit; pit = list_iter_next(pit)) {
+        		part = (boxfile*)list_iter_getval(pit);
+        		find_file_for_part(part->name, &it);
+        		if(it) {
+        			aFile = (boxfile*)list_iter_getval(it);
+        			aFile->size+=part->size;
+			} else {
+				syslog(LOG_WARNING, "Stale file part %s found", part->name );
+				it = list_get_iter(aDir->files);
+			}
+		}
+	}
+
 	xmlHashAddEntry(allDirs, path, aDir);
-	return aDir;
-	
-/*
-  for (cur_node = node->children; cur_node; cur_node = cur_node->next) {
-    if(!strcmp(cur_node->name,"files")) {
-      for (cur_file = cur_node->children; cur_file; cur_file = cur_file->next) {
-        //get name and append to files
-        aFile = (boxfile *) malloc(sizeof(boxfile));
-        for (attrs = cur_file->properties; attrs; attrs = attrs->next) {
-          if(!strcmp(attrs->name,"file_name")) aFile->name = strdup(attrs->children->content);
-          else if(!strcmp(attrs->name,"size")) aFile->size = atol(attrs->children->content);
-          else if(!strcmp(attrs->name,"id")) aFile->id = strdup(attrs->children->content);
-          else if(!strcmp(attrs->name,"created")) aFile->ctime = atol(attrs->children->content);
-          else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
-        }
-        if(options.splitfiles && ends_with(aFile->name, PART_SUFFIX)) {
-            list_insert_sorted_comp(aDir->pieces, aFile, filename_compare);
-        } else {
-            list_append(aDir->files,aFile);
-        }
-      }
-      if(options.splitfiles) {
-        it = list_get_iter(aDir->files);
-        pit = list_get_iter(aDir->pieces);
-        for(; pit; pit = list_iter_next(pit)) {
-            part = (boxfile*)list_iter_getval(pit);
-            find_file_for_part(part->name, &it);
-            if(it) {
-                aFile = (boxfile*)list_iter_getval(it);
-                aFile->size+=part->size;
-            } else {
-                syslog(LOG_WARNING, "Stale file part %s found", part->name );
-                it = list_get_iter(aDir->files);
-            }
-        }
-      }
-    } else if(!strcmp(cur_node->name,"folders")) {
-      for (cur_dir = cur_node->children; cur_dir; cur_dir = cur_dir->next) {
-        //get name and do recursion
-        aFile = (boxfile *) malloc(sizeof(boxfile));
-	aFile->size = 0;
-        for (attrs = cur_dir->properties; attrs; attrs = attrs->next) {
-          if(!strcmp(attrs->name,"name")) aFile->name = strdup(attrs->children->content);
-          else if(!strcmp(attrs->name,"id")) aFile->id = strdup(attrs->children->content);
-	  else if(!strcmp(attrs->name,"size")) aFile->size = atol(attrs->children->content);
-          else if(!strcmp(attrs->name,"created")) aFile->ctime = atol(attrs->children->content);
-          else if(!strcmp(attrs->name,"updated")) aFile->mtime = atol(attrs->children->content);
-        }
-        list_append(aDir->folders,aFile);
-      }
-    }
-    //skipping tags & sharing info 
-  }
-*/
+	return aDir;	
 }
 
 void boxtree_init(jobj * root, jobj * info)
