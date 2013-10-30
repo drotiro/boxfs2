@@ -2,7 +2,7 @@
 # Variables
 PKGS = fuse libxml-2.0 libcurl libapp libjson
 FLAGS = $(shell pkg-config ${PKGS} --cflags) -g ${CFLAGS}
-LIBS = $(shell pkg-config ${PKGS} --libs) 
+LIBS = $(shell pkg-config ${PKGS} --libs) -lpthread
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxutils.o
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin

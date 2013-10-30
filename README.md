@@ -14,11 +14,11 @@ Compiling
 
  * Get the sources from GitHub: `git clone https://github.com/drotiro/boxfs2.git`
  * Make sure you have all the needed dependencies:
- * * fuse
- * * libcurl
- * * libxml2
- * * libapp  - https://github.com/drotiro/libapp
- * * libjson - https://github.com/vincenthz/libjson/
+  * fuse
+  * libcurl
+  * libxml2
+  * libapp  - https://github.com/drotiro/libapp
+  * libjson - https://github.com/vincenthz/libjson/
  * Type `make` and then `sudo make install`
 
 Usage

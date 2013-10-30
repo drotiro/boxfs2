@@ -71,16 +71,6 @@ int ends_with(const char * str, const char * suff)
 }
 
 
-/* OBSOLETE
-void api_logout()
-{
-  char * buf;
-
-  buf = http_fetchf("%s" API_LOGOUT "%s", proto, auth_token);
-  free(buf);
-}
-*/
-
 void api_free()
 {
 	//api_logout();
@@ -177,10 +167,9 @@ int refresh_oauth_tokens()
 	}
 
 	post_free(postpar);
-	if(buf)    free(buf);
+	if(buf) free(buf);
 	return res;
 }
-
 
 jobj * get_account_info() {
 	char * buf = NULL;
@@ -482,9 +471,11 @@ int api_removefile(const char * path)
 	else {
 		//remove it from box.net
 		boxpath_getfile(bpath);
-		do_removefile_id(bpath->file->id);
+		res = do_removefile_id(bpath->file->id);
 
 		if(res==0) {
+        		used_space -= bpath->file->size;
+
 			if(options.splitfiles && list_size(bpath->dir->pieces)) {
 				list_iter cur;
 				boxfile * part;
@@ -634,18 +625,20 @@ void api_upload(const char * path, const char * tmpfile)
 {
   postdata_t buf = post_init();
   char * res = NULL, * pr = NULL, * partname="";
-  off_t fsize;
+  off_t fsize, oldsize = 0;
   size_t start, len;
   int oldver;
-  //UNUSED jobj * part;
+
   boxpath * bpath = boxpath_from_string(path);
 
   if(bpath->dir) {
     post_add(buf, "parent_id", bpath->dir->id);
     fsize = filesize(tmpfile);
     oldver = (boxpath_getfile(bpath) && bpath->file->size);
+    if(oldver) oldsize = bpath->file->size;
+    
     //if there was an older version of the file with parts, remove them
-    if(options.splitfiles && oldver && (bpath->file->size > PART_LEN)) {
+    if(options.splitfiles && oldver && (oldsize > PART_LEN)) {
     	api_removefile(path);
     }
     //upload file in parts if needed
@@ -687,12 +680,15 @@ void api_upload(const char * path, const char * tmpfile)
 	set_filedata(bpath ,res, fsize);
 	free(res);
     }
+
+    // update used space    
+    used_space = used_space - oldsize + fsize;
+    
   } else {
     syslog(LOG_ERR,"Couldn't upload file %s",bpath->base);
   }
   post_free(buf);
   boxpath_free(bpath);
-  //get_account_info();
 }
 
 void do_add_folder(const char * path, const char * id)
@@ -722,6 +718,28 @@ void do_add_folder(const char * path, const char * id)
 
 
 /*
+ * Helper threads
+ */
+void * refresher_thread(void * unused)
+{
+        if(options.verbose) syslog(LOG_DEBUG, "Token-refresh thread started");
+        do {
+                sleep(1800);
+                refresh_oauth_tokens();
+        	update_auth_header(auth_token);
+        } while(TRUE);
+}
+
+void start_helper_threads()
+{
+        pthread_t rt;
+        if(pthread_create(&rt, NULL, refresher_thread, NULL)) {
+                syslog(LOG_WARNING, "Can't create token-refresh thread");
+        }
+
+}
+
+/*
  * Login to box.net, get the auth_token
  */
 int api_init(int* argc, char*** argv) {
@@ -740,10 +758,12 @@ int api_init(int* argc, char*** argv) {
   		res = get_oauth_tokens();
         else
         	res = refresh_oauth_tokens();
-
-  	if(auth_token) {
+        
+  	if(auth_token) {  	        
   		char * buf;
   		jobj * root, *info;
+  		
+  		pthread_atfork(NULL, NULL, start_helper_threads);
   		
         	update_auth_header(auth_token);
         	set_conn_reuse(TRUE);
