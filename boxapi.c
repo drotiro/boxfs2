@@ -752,7 +752,7 @@ int api_init(int* argc, char*** argv) {
   
 	xmlInitParser();
 	openlog("boxfs", LOG_PID, LOG_USER);
-	cache_init(options.cache_dir);
+	cache_init(options.cache_dir, options.expire_time);
 
 	if(!auth_token || !refresh_token) 
   		res = get_oauth_tokens();
@@ -763,6 +763,8 @@ int api_init(int* argc, char*** argv) {
   		char * buf;
   		jobj * root, *info;
   		
+  		// must be done this way because
+  		//fuse forks a new process
   		pthread_atfork(NULL, NULL, start_helper_threads);
   		
         	update_auth_header(auth_token);

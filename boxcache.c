@@ -6,38 +6,45 @@
 #include <stdlib.h>
 
 static char *cache_dir = NULL;
+static time_t expire = 0;
 
-void cache_init(const char * path)
+void cache_init(const char * path, int expire_time)
 {
 	//one-time initialization
-	if(!cache_dir) cache_dir = strdup(path);
+	if(!cache_dir) {
+		cache_dir = strdup(path);
+		expire = expire_time * 60;
+	}
 }
 
 char * make_path(const char * key)
 {
-	if(!cache_dir) {
-		fprintf(stderr, "ERROR: cache_init has not been called\n");
-		return NULL;
-	}
+	if(!cache_dir) return NULL;
 	if(strstr(key, "../")) return NULL;
 	
 	return pathappend(cache_dir, key);
 }
 
-#define BOM "\xEF\xBB\xBF"
-#define BOMLEN strlen(BOM)
-
 char * cache_get(const char * key)
 {
-
+	struct stat sb;        
 	char * fname = make_path(key);
-	FILE * kf = fopen(fname, "r");
+	FILE * kf;
 	char * v;
 	off_t flen;
-	flen = filesize(fname);
-	free(fname);
 
-	if(!kf) return NULL;
+        kf = fopen(fname, "r");
+	if(!kf) { free(fname); return NULL; }
+
+        stat(fname, &sb);
+	flen = sb.st_size;
+	if(expire && ((time(NULL) - sb.st_mtime) > expire)) {
+		fclose(kf);
+		unlink(fname);
+		free(fname);
+		return NULL;
+	}
+
 	
 	v = malloc(flen+1);
 	if (v) {
@@ -46,6 +53,7 @@ char * cache_get(const char * key)
 	}
 	
 	fclose(kf);
+	free(fname);
 	return v;
 }
 
@@ -67,7 +75,6 @@ void   cache_put(const char * key, const char * val)
 	
 	if(!kf) return;
 	
-//	fwrite(BOM, BOMLEN, 1, kf);
 	fwrite(val, strlen(val), 1, kf);
 	fclose(kf);
 }

@@ -12,8 +12,6 @@
 /* command-line options */
 typedef struct box_options_t
 {
-//    char* user;
-//    char* password;
     char* token_file;
     char* cache_dir;
     char* mountpoint;
@@ -23,6 +21,7 @@ typedef struct box_options_t
     mode_t dperm;
     int	verbose;
     int splitfiles;
+    int expire_time;
 } box_options;
 
 extern box_options options;

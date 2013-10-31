@@ -36,19 +36,20 @@ follow the instructions on the terminal and on your browser.
 The first mount can be quite slow because boxfs will fetch and cache info
 (metadata, not file contents!) about your folders.
 
-
-	Usage: boxfs [options] [mountpoint]
+	Usage: boxfs [options] [mountPoint]
 	
 	Options:
-	  -f              conffile    file containing configuration options
-	  -t --token_file tokenfile   file used to store oauth2 tokens
+	  -h                          shows this help message
+	  -f               conffile   file containing configuration options
+	  -t --token_file  tokenfile  file containing oauth tokens
+	  -c --cache_dir   cachedir   directory used to cache metadata
+	  -e --expire_time N          expire time for cache entries (in minutes)
 	  -l --largefiles             enable support for large files (splitting)
 	  -v --verbose                turn on verbose syslogging
 	  -U --uid                    user id to use as file owner (defaults to you)
 	  -G --gid                    group id to use for group permissions
 	  -F --fperm                  file permissions (default 0644)
 	  -D --dperm                  directory permissions (default 0755)
-	
 
 
 When you've done using your files, unmount your filsystem

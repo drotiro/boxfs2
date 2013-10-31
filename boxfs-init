@@ -37,7 +37,10 @@ token_file = $BOXDIR/token
 
 verbose    = no
 largefiles = no
-cache_dir  = $BOXDIR/$CACHE
+
+# Configure the cache
+cache_dir   = $BOXDIR/$CACHE
+expire_time = 1440
 
 # Configure your uid and gid below:
 #uid = 1000
