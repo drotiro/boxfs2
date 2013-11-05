@@ -500,11 +500,16 @@ int api_removefile(const char * path)
 	}
 	
 	boxpath_free(bpath);
-	//get_account_info();
 	return res;
 }
 
-//Move and rename funcs, new version
+/*
+ * Move and rename funcs, new version
+ */
+
+//predeclaration
+int do_api_move_id(int is_dir, const char * id, const char * dest, int is_rename);
+
 int do_api_move(boxpath * bsrc, boxpath * bdst)
 {
 	int res = 0;

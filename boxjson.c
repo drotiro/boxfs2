@@ -127,7 +127,7 @@ void jobj_free(jobj * obj)
 {
 	list_iter it;
 
-	if(obj->type = T_VAL) {
+	if(obj->type == T_VAL) {
 		free(obj->value);
 		return;
 	}
