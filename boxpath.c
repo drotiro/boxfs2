@@ -194,50 +194,54 @@ boxfile * obj_to_file(jobj * obj)
 	return f;
 }
 
-boxdir * boxtree_add_folder(const char * path, const char * id, jobj * folder)
+boxdir * boxtree_add_folder(const char * path, const char * id, list * objs)
 {
 	boxdir * aDir;
 	boxfile * aFile, * part;
-	list_iter it, pit;
-	jobj * obj, *item;
+	list_iter it, pit, oit;
+	jobj * obj, *item, *folder;
 	char * type;
 
 	aDir = boxdir_create();
 	aDir->id = strdup(id);
 	
 	if(options.verbose) syslog(LOG_DEBUG, "Adding %s", path);
-	obj = jobj_get(folder, "entries");
-	it = list_get_iter(obj->children);
-	for(; it; it = list_iter_next(it)) {
-        	item = list_iter_getval(it);
-		aFile = obj_to_file(item);
+	oit = list_get_iter(objs);
+	for(; oit; oit = list_iter_next(oit)) {
+        	folder = (jobj*) list_iter_getval(oit);
+        	obj = jobj_get(folder, "entries");
+        	it = list_get_iter(obj->children);
+        	for(; it; it = list_iter_next(it)) {
+                	item = list_iter_getval(it);
+        		aFile = obj_to_file(item);
 
-        	type = jobj_getval(item, "type");
-        	if(!strcmp(type,"folder")) list_append(aDir->folders, aFile);
-        	else {
-        		if(options.splitfiles && ends_with(aFile->name, PART_SUFFIX))
-        			list_insert_sorted_comp(aDir->pieces, aFile, filename_compare);
-			else list_append(aDir->files, aFile);
-		}
-        	free(type);
-	}
+                	type = jobj_getval(item, "type");
+                	if(!strcmp(type,"folder")) list_append(aDir->folders, aFile);
+                	else {
+                		if(options.splitfiles && ends_with(aFile->name, PART_SUFFIX))
+                			list_insert_sorted_comp(aDir->pieces, aFile, filename_compare);
+        			else list_append(aDir->files, aFile);
+        		}
+                	free(type);
+        	}
 	
-	if(options.splitfiles) {
-        	it = list_get_iter(aDir->files);
-        	pit = list_get_iter(aDir->pieces);
+        	if(options.splitfiles) {
+                	it = list_get_iter(aDir->files);
+                	pit = list_get_iter(aDir->pieces);
         	
-        	for(; pit; pit = list_iter_next(pit)) {
-        		part = (boxfile*)list_iter_getval(pit);
-        		find_file_for_part(part->name, &it);
-        		if(it) {
-        			aFile = (boxfile*)list_iter_getval(it);
-        			aFile->size+=part->size;
-			} else {
-				syslog(LOG_WARNING, "Stale file part %s found", part->name );
-				it = list_get_iter(aDir->files);
-			}
-		}
-	}
+                	for(; pit; pit = list_iter_next(pit)) {
+                		part = (boxfile*)list_iter_getval(pit);
+                		find_file_for_part(part->name, &it);
+                		if(it) {
+                			aFile = (boxfile*)list_iter_getval(it);
+                			aFile->size+=part->size;
+        			} else {
+        				syslog(LOG_WARNING, "Stale file part %s found", part->name );
+        				it = list_get_iter(aDir->files);
+        			}
+        		}
+        	}
+        }
 
 	xmlHashAddEntry(allDirs, path, aDir);
 	return aDir;	

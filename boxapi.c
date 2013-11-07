@@ -262,6 +262,12 @@ int api_create(const char * path)
   return res;
 }
 
+char * get_folder_info_next(const char * id, int offset )
+{
+        char * buf = NULL;
+        buf = http_fetchf(API_LS "%s/items?fields=size,name,created_at,modified_at&offset=%d&limit=1000", id, offset);
+}
+
 char * get_folder_info(const char * id, int items )
 {
 	char * buf = NULL;
@@ -269,7 +275,7 @@ char * get_folder_info(const char * id, int items )
 	if(items) {
 		buf = cache_get(id);
 		if(buf) return buf;
-		buf = http_fetchf(API_LS "%s/items?fields=size,name,created_at,modified_at", id);
+		buf = http_fetchf(API_LS "%s/items?fields=size,name,created_at,modified_at&limit=1000", id);
 		cache_put(id, buf);
 		return buf;
 	}
@@ -709,8 +715,20 @@ void do_add_folder(const char * path, const char * id)
 	free(buf);
 	
 	if(obj) {
-	  	dir = boxtree_add_folder(path, id, obj);
-	  	jobj_free(obj);
+	        long tot_count = atol(jobj_getval(obj, "total_count")), offset = 1000;
+	        list * objs = list_new_full((list_deallocator)jobj_free);
+	        list_append(objs, obj);
+                
+                while (tot_count > offset) {
+                        buf = get_folder_info_next(id, offset);
+                        obj = jobj_parse(buf);
+                        free(buf);
+                        list_append(objs, obj);
+                        offset+=1000;
+                }
+
+	  	dir = boxtree_add_folder(path, id, objs);
+	  	list_free(objs);
 	  	it = list_get_iter(dir->folders);
 	  	for(; it; it = list_iter_next(it)) {
 	  	        f = list_iter_getval(it);

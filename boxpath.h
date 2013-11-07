@@ -63,7 +63,7 @@ list_iter	boxpath_next_part(boxpath * bpath, list_iter it);
 
 /* Tree handling */
 void 		boxtree_init(jobj * root, jobj * info);
-boxdir *	boxtree_add_folder(const char * path, const char * id, jobj * folder);
+boxdir *	boxtree_add_folder(const char * path, const char * id, list * objs);
 void		boxtree_movedir(const char * from, const char * to);
 
 /* Other utilities */
