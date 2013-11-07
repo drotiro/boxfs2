@@ -21,6 +21,10 @@ Compiling
   * libjson - https://github.com/vincenthz/libjson/
  * Type `make` and then `sudo make install`
 
+The last two libraries, libapp and libjson, can be downloaded, compiled and installed
+automatically by running `sudo make deps` in the source folder (git is required to
+clone the repositories from GitHub).
+
 Usage
 -----
 

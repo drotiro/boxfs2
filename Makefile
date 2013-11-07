@@ -6,8 +6,9 @@ LIBS = $(shell pkg-config ${PKGS} --libs) -lpthread
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxutils.o
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
+DEPS = vincenthz/libjson drotiro/libapp
 
-.PHONY: clean install check_pkg
+.PHONY: clean install check_pkg deps
 
 # Targets
 boxfs:  check_pkg $(OBJS) 
@@ -24,6 +25,9 @@ clean:
 install: boxfs
 	install -s boxfs $(BINDIR)
 	install boxfs-init $(BINDIR)
+
+deps:
+	@$(foreach i,$(DEPS), git clone https://github.com/$i && make -C `basename $i` install; )
 
 # Check required programs
 PKG_CONFIG_VER := $(shell pkg-config --version 2>/dev/null)
