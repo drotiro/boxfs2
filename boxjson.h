@@ -23,14 +23,19 @@ typedef struct jobj_t {
 	
 } jobj;
 
+/*
+ * Get child nodes, searching by key or by position
+ */
 jobj *    jobj_get(const jobj * obj, const char * key);
 char *    jobj_getval(const jobj * obj, const char * key);
 long long jobj_getlong(const jobj * obj, const char * key);
 time_t    jobj_gettime(const jobj * obj, const char * key);
-jobj *    jobj_array_item(const jobj * obj,int at);
-jobj *    jobj_parse(const char * json_str);
+jobj *    jobj_array_item(const jobj * obj, int at);
 
-jobj *  jobj_new();
+/*
+ * Create and destroy methods
+ */
+jobj *  jobj_parse(const char * json_str);
 void    jobj_free(jobj * obj);
 
 time_t  unix_time(const char * timestr);

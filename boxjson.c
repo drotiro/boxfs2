@@ -10,6 +10,9 @@ time_t unix_time(const char * timestr)
 	return mktime(&time);
 }
 
+/* predeclaration */
+jobj *  jobj_new();
+
 jobj * jobj_get(const jobj * obj, const char * key)
 {
 	list_iter it;
@@ -62,6 +65,7 @@ void * dom_mknode(int nesting, int is_object)
 {
 	jobj * o = jobj_new();
 	o->type = (is_object ? T_OBJ : T_ARR);
+	o->children = list_new();
 	//printf("%s (%d)\n", is_object ? "object" : "array", nesting);
 	return o;
 }
@@ -136,7 +140,7 @@ void jobj_free(jobj * obj)
 	for(; it; it = list_iter_next(it)) {
 		jobj_free(list_iter_getval(it));
 	}
-	list_free(obj->children);
+	if(obj->children) list_free(obj->children);
 	free(obj);
 }
 
@@ -145,7 +149,6 @@ jobj *  jobj_new()
         jobj * o = malloc(sizeof(jobj));
         memset(o, 0, sizeof(jobj));
         
-        o->children = list_new();
         return o;
 }
 
