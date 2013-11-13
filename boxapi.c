@@ -267,6 +267,7 @@ char * get_folder_info_next(const char * id, int offset )
 {
         char * buf = NULL;
         buf = http_fetchf(API_LS "%s/items?fields=size,name,created_at,modified_at&offset=%d&limit=1000", id, offset);
+	return buf;
 }
 
 char * get_folder_info(const char * id, int items )
@@ -282,7 +283,6 @@ char * get_folder_info(const char * id, int items )
 	}
 	
 	return http_fetchf(API_LS "%s", id);
-	return buf;
 }
 
 void set_filedata(const boxpath * bpath, char * res, long long fsize)
