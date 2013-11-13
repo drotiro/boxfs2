@@ -184,6 +184,7 @@ boxfile * obj_to_file(jobj * obj)
 	it = list_get_iter(obj->children);
 	for(; it; it = list_iter_next(it)) {
 		item = list_iter_getval(it);
+		if(!item->value) continue;
 		if(!strcmp(item->key,"id")) f->id = strdup(item->value);
 		else if(!strcmp(item->key, "size")) f->size = atoll(item->value);
 		else if(!strcmp(item->key, "name")) f->name = strdup(item->value);
