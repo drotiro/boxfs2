@@ -26,6 +26,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <curl/curl.h>
 
 #include <libxml/hash.h>
 
@@ -806,6 +807,7 @@ int api_init(int* argc, char*** argv) {
 
   		syslog(LOG_INFO, "Filesystem mounted on %s", options.mountpoint);
 	}
+	curl_global_cleanup();
   
 	return res;
 }
