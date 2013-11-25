@@ -7,6 +7,7 @@ OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxut
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 DEPS = vincenthz/libjson drotiro/libapp
+STATIC_LIBS = -L./libapp/libapp/ -L./libjson/
 
 .PHONY: clean install check_pkg deps
 
@@ -14,6 +15,11 @@ DEPS = vincenthz/libjson drotiro/libapp
 boxfs:  check_pkg $(OBJS) 
 	@echo "Building  $@"
 	$(CC) $(FLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+
+static: check_pkg deps $(OBJS)
+	@echo "Building  boxfs"
+	$(CC) $(FLAGS) $(LDFLAGS) -o boxfs $(OBJS) $(LIBS) $(STATIC_LIBS)
+
 
 .c.o:
 	@echo Compiling $<
@@ -27,7 +33,7 @@ install: boxfs
 	install boxfs-init $(BINDIR)
 
 deps:
-	@$(foreach i,$(DEPS), git clone https://github.com/$i && make -C `basename $i` install; )
+	@$(foreach i,$(DEPS), (test -d `basename $i` || git clone https://github.com/$i) && make -C `basename $i`; )
 
 # Check required programs
 PKG_CONFIG_VER := $(shell pkg-config --version 2>/dev/null)
