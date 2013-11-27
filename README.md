@@ -21,9 +21,11 @@ Compiling
   * libjson - https://github.com/vincenthz/libjson/
  * Type `make` and then `sudo make install`
 
-The last two libraries, libapp and libjson, can be downloaded, compiled and installed
-automatically by running `sudo make deps` in the source folder (git is required to
-clone the repositories from GitHub).
+If you prefer a static build or don't want to install libapp and libjson system-wide,
+you can run `make static` to: 
+ * download (`git clone`) libapp and libjson, inside the boxfs source tree
+ * compile them
+ * link boxfs against those local libs
 
 Usage
 -----
