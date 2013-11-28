@@ -1,29 +1,29 @@
 
 # Variables
 PKGS = fuse libxml-2.0 libcurl libapp libjson
-FLAGS = $(shell pkg-config ${PKGS} --cflags)  ${CFLAGS}
-LIBS = $(shell pkg-config ${PKGS} --libs) -lpthread
+FLAGS ?= $(shell pkg-config ${PKGS} --cflags)
+LIBS ?= $(shell pkg-config ${PKGS} --libs) -lpthread
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxutils.o
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 DEPS = vincenthz/libjson drotiro/libapp
-STATIC_LIBS = -L./libapp/libapp/ -L./libjson/
+STATIC_LIBS = ./libapp/libapp/libapp.a ./libjson/libjson.a
 
 .PHONY: clean install check_pkg deps
 
 # Targets
 boxfs:  check_pkg $(OBJS) 
 	@echo "Building  $@"
-	$(CC) $(FLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+	$(CC) $(FLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 static: check_pkg deps $(OBJS)
-	@echo "Building  boxfs"
-	$(CC) $(FLAGS) $(LDFLAGS) -o boxfs $(OBJS) $(LIBS) $(STATIC_LIBS)
+	@echo "Building  boxfs (static linking)"
+	$(CC) $(FLAGS) $(CFLAGS) $(LDFLAGS) -o boxfs $(OBJS) $(LIBS) $(STATIC_LIBS)
 
 
 .c.o:
 	@echo Compiling $<
-	$(CC) $(FLAGS) -c $< -o $@
+	$(CC) $(FLAGS) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) *~ boxfs

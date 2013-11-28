@@ -64,7 +64,8 @@ with `fusermount -u mountpoint`
 Authors and Contributors
 ========================
 
-Boxfs is written by Domenico Rotiroti.
+Boxfs is written by Domenico Rotiroti with contributions from other GitHub users.
+
 See README.V1 for a list of people who helped in the previous releases.
 
 Known problems/limitations
