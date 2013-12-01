@@ -162,9 +162,9 @@ int parse_options (int* argc, char*** argv, box_options * options)
 	tfile = fopen(options->token_file, "r");
 	if(tfile) {
 		auth_token    = app_term_readline_from(tfile);
-		auth_token[strlen(auth_token)-1] = 0; //trim
+		if(auth_token) auth_token[strlen(auth_token)-1] = 0; //trim
 		refresh_token = app_term_readline_from(tfile);
-		refresh_token[strlen(refresh_token)-1] = 0; //trim
+		if(refresh_token) refresh_token[strlen(refresh_token)-1] = 0; //trim
 		fclose(tfile);
 	} else {
 		fprintf(stderr, "Info: will write auth tokens in file %s\n", options->token_file);
