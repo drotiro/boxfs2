@@ -1,6 +1,6 @@
 
 # Variables
-PKGS = fuse libxml-2.0 libcurl libapp libjson
+PKGS = fuse libxml-2.0 libcurl
 FLAGS ?= $(shell pkg-config ${PKGS} --cflags)
 LIBS ?= $(shell pkg-config ${PKGS} --libs) -lpthread
 OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxutils.o
@@ -12,6 +12,7 @@ STATIC_LIBS = ./libapp/libapp/libapp.a ./libjson/libjson.a
 .PHONY: clean install check_pkg deps
 
 # Targets
+boxfs:  PKGS += libapp libjson
 boxfs:  check_pkg $(OBJS) 
 	@echo "Building  $@"
 	$(CC) $(FLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
