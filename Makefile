@@ -7,7 +7,6 @@ OBJS = boxfs.o boxapi.o boxpath.o boxhttp.o boxopts.o boxjson.o boxcache.o boxut
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 DEPS = vincenthz/libjson drotiro/libapp
-STATIC_LIBS = ./libapp/libapp/libapp.a ./libjson/libjson.a
 
 .PHONY: clean install check_pkg deps
 
@@ -17,6 +16,8 @@ boxfs:  check_pkg $(OBJS)
 	@echo "Building  $@"
 	$(CC) $(FLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
+static: FLAGS += -Ilibapp -Ilibjson
+	STATIC_LIBS = ./libapp/libapp/libapp.a ./libjson/libjson.a
 static: check_pkg deps $(OBJS)
 	@echo "Building  boxfs (static linking)"
 	$(CC) $(FLAGS) $(CFLAGS) $(LDFLAGS) -o boxfs $(OBJS) $(LIBS) $(STATIC_LIBS)
