@@ -35,7 +35,9 @@ install: boxfs
 	install boxfs-init $(BINDIR)
 
 deps:
-	@$(foreach i,$(DEPS), (test -d `basename $i` || git clone https://github.com/$i) && make -C `basename $i`; )
+	@$(foreach i,$(DEPS), ((test -d `basename $i` && (cd `basename $i`; git pull origin master; cd ..)) \
+		|| git clone https://github.com/$i) && make -C `basename $i`; )
+                        
 
 # Check required programs
 PKG_CONFIG_VER := $(shell pkg-config --version 2>/dev/null)
