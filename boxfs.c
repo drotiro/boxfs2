@@ -5,8 +5,6 @@
   This software is licensed under the GPLv3 license.
 */
 
-#define FUSE_USE_VERSION 26
-
 #ifdef linux
 /* For pread()/pwrite() */
 #define _XOPEN_SOURCE 500
