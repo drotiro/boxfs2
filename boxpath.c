@@ -63,7 +63,6 @@ boxpath *       boxpath_from_string(const char * path)
 	bpath->file = (strcmp(path,"/") ? NULL : rootDir);
 	bpath->is_dir = (xmlHashLookup(allDirs, path)!=NULL);
 
-	free(dir);
 	return bpath; 
 }
 
