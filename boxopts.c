@@ -8,7 +8,6 @@
 #include <libapp/app.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fuse.h>
 #include <unistd.h>
 
 char* args[] = { "boxfs", "-h" };
