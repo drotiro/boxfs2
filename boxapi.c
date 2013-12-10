@@ -331,8 +331,17 @@ int api_open(const char * path, const char * pfile){
 	list_iter it;
 	boxpath * bpath = boxpath_from_string(path);
 
-	if(!boxpath_getfile(bpath)) res = -ENOENT;
-  
+	if(!boxpath_getfile(bpath)) {
+                if(options.verbose) syslog(LOG_DEBUG, "Can't find path %s",
+                        path);	        
+	        res = -ENOENT;
+        }
+        if(!res && !bpath->file->id) {
+                if(options.verbose) syslog(LOG_DEBUG, "Missing file id for %s",
+                        path);	        
+	        res = -ENOENT;
+        }
+
 	if(!res) {
 		sprintf(url, API_DOWNLOAD, bpath->file->id);
 		res = http_fetch_file(url, pfile, FALSE);
