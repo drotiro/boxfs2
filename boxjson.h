@@ -7,7 +7,8 @@
  *    JSON parsing and traversing
  *    functions.
  */
-
+ 
+#define _XOPEN_SOURCE 700
 #include <json.h>
 #include <libapp/list.h>
 #include <time.h>

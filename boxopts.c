@@ -138,7 +138,7 @@ int parse_options (int* argc, char*** argv, box_options * options)
 		{0, "mountpoint", OPT_STRING, &options->mountpoint}
 	};
 
-    memset(options, 0, sizeof(options));
+    memset(options, 0, sizeof(box_options));
     options->uid = getuid();
     options->gid = getgid();
     this = app_new();
