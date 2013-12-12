@@ -113,7 +113,7 @@ int get_oauth_tokens()
 	post_add(postpar, "client_id", API_KEY_VAL);
 	post_add(postpar, "client_secret", API_SECRET);
 	buf = http_post(API_OAUTH_TOKEN, postpar);
-	//printf("Response: %s\n", buf);
+
 	tokens = jobj_parse(buf);
 	if(tokens) {
 		auth_token = jobj_getval(tokens, "access_token");
@@ -125,6 +125,7 @@ int get_oauth_tokens()
 		} else {
 			char * err = jobj_getval(tokens, "error_description");
 			fprintf(stderr, "Unable to get access token: %s\n", err ? err : "unknown error");
+			if(err) free(err);
 		}
 		jobj_free(tokens);
 	} else {
@@ -149,7 +150,7 @@ int refresh_oauth_tokens()
 	post_add(postpar, "client_id", API_KEY_VAL);
 	post_add(postpar, "client_secret", API_SECRET);
 	buf = http_post(API_OAUTH_TOKEN, postpar);
-	//printf("Response: %s\n", buf);
+
 	tokens = jobj_parse(buf);
 	if(tokens) {
 		auth_token = jobj_getval(tokens, "access_token");
@@ -161,6 +162,7 @@ int refresh_oauth_tokens()
 		} else {
 			char * err = jobj_getval(tokens, "error_description");
 			syslog(LOG_ERR, "Unable to get access token: %s\n", err ? err : "unknown error");
+			if(err) free(err);
 		}
 		jobj_free(tokens);
 	} else {
@@ -621,7 +623,11 @@ int api_rename_v2(const char * from, const char * to)
 	int res = 0;
 	boxpath * bsrc = boxpath_from_string(from);
 	boxpath * bdst = boxpath_from_string(to);
-	if(!boxpath_getfile(bsrc)) return -EINVAL; 
+	if(!boxpath_getfile(bsrc)) {
+	        boxpath_free(bsrc);
+	        boxpath_free(bdst);
+	        return -EINVAL; 
+        }
 	boxpath_getfile(bdst);
 
 	if(bsrc->dir!=bdst->dir) {
@@ -725,7 +731,7 @@ void do_add_folder(const char * path, const char * id)
 	free(buf);
 	
 	if(obj) {
-	        long tot_count = atol(jobj_getval(obj, "total_count")), offset = 1000;
+	        long long tot_count = jobj_getlong(obj, "total_count"), offset = 1000;
 	        list * objs = list_new_full((list_deallocator)jobj_free);
 	        list_append(objs, obj);
                 
