@@ -210,6 +210,8 @@ boxdir * boxtree_add_folder(const char * path, const char * id, list * objs)
 	for(; oit; oit = list_iter_next(oit)) {
         	folder = (jobj*) list_iter_getval(oit);
         	obj = jobj_get(folder, "entries");
+        	if(!obj) continue; /* skip invalid json entry */
+        	
         	it = list_get_iter(obj->children);
         	for(; it; it = list_iter_next(it)) {
                 	item = list_iter_getval(it);

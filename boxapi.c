@@ -431,35 +431,40 @@ int api_getattr(const char *path, struct stat *stbuf)
 
 int api_removedir(const char * path)
 {
-  int res = 0;
-  char url[BUFSIZE]="";
-  long sc;
-  boxpath * bpath = boxpath_from_string(path);
+	int res = 0;
+	char url[BUFSIZE]="";
+	long sc;
+	boxpath * bpath = boxpath_from_string(path);
+	if(!bpath) return -EINVAL;
 
-  /* check that is a dir */
-  if(!boxpath_getfile(bpath)) return -EINVAL;  
-  if(!bpath->dir && !bpath->is_dir) return -ENOENT;
+	/* check that is a dir */
+	if(!boxpath_getfile(bpath)) {
+		free(bpath);
+		return -EINVAL;
+	}
+	if(!bpath->dir || !bpath->is_dir) {
+		free(bpath);
+		return -ENOENT;
+	}
 
-  snprintf(url, BUFSIZE, API_LS "%s", bpath->file->id);
-  sc = http_delete(url);
+	snprintf(url, BUFSIZE, API_LS "%s", bpath->file->id);
+	sc = http_delete(url);
 
-  if(sc != 204) {
-    res = -EPERM;
-  }
+	if(sc != 204) res = -EPERM;
 
-  if(!res) {
-    //remove it from parent's subdirs...
-    LOCKDIR(bpath->dir);
-    boxpath_removefile(bpath);
-    UNLOCKDIR(bpath->dir);
-    //...and from dir list
-    xmlHashRemoveEntry(allDirs, path, NULL);
-    // invalidate parent cache entry
-    cache_rm(bpath->dir->id);
-  }
-  
-  boxpath_free(bpath);  
-  return res;
+	if(!res) {
+		//remove it from parent's subdirs...
+		LOCKDIR(bpath->dir);
+		boxpath_removefile(bpath);
+		UNLOCKDIR(bpath->dir);
+		//...and from dir list
+		xmlHashRemoveEntry(allDirs, path, NULL);
+		// invalidate parent cache entry
+		cache_rm(bpath->dir->id);
+	}
+
+	boxpath_free(bpath);  
+	return res;
 }
 
 /*
