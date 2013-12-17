@@ -82,6 +82,7 @@ void api_free()
 	closelog();
   
 	xmlCleanupParser();
+	curl_global_cleanup();
 	if(allDirs) xmlHashFree(allDirs, NULL); // TODO: Deallocator!
 }
 
@@ -794,6 +795,7 @@ int api_init(int* argc, char*** argv) {
 	if (parse_options (argc, argv, &options))
 		return 1;  
   
+	curl_global_init(CURL_GLOBAL_DEFAULT);
 	xmlInitParser();
 	openlog("boxfs", LOG_PID, LOG_USER);
 	cache_init(options.cache_dir, options.expire_time);
