@@ -186,18 +186,20 @@ long post_addfile(postdata_t pd, const char * name, const char * tmpfile)
 char * post_addfile_part(postdata_t pd, const char * name,
         const char * tmpfile, size_t offset, size_t len)
 {
-    char * buf = (char*) malloc(len);
-    FILE * tf = fopen(tmpfile, "r");
-    fseek(tf, offset, SEEK_SET);
-    fread(buf, 1, len, tf);
-    fclose(tf);
-    curl_formadd(&pd->post, &pd->last,
-        CURLFORM_COPYNAME, "new_file0",
-        CURLFORM_BUFFER , name,
-        CURLFORM_BUFFERPTR, buf,
-        CURLFORM_BUFFERLENGTH, len,
-        CURLFORM_END);
-    return buf;
+	char * buf = (char*) malloc(len);
+	FILE * tf = fopen(tmpfile, "r");
+	size_t read;
+
+	fseek(tf, offset, SEEK_SET);
+	read = fread(buf, 1, len, tf);
+	fclose(tf);
+	curl_formadd(&pd->post, &pd->last,
+		CURLFORM_COPYNAME, "new_file0",
+		CURLFORM_BUFFER , name,
+		CURLFORM_BUFFERPTR, buf,
+		CURLFORM_BUFFERLENGTH, read,
+		CURLFORM_END);
+	return buf;
 }
 
 

@@ -29,16 +29,18 @@ char * make_path(const char * key)
 
 char * cache_get(const char * key)
 {
-	struct stat sb;        
+	struct stat sb;
+	int sres;
 	char * fname = make_path(key);
 	FILE * kf;
 	char * v;
-	off_t flen;
+	off_t flen, er;
 
         kf = fopen(fname, "r");
 	if(!kf) { free(fname); return NULL; }
 
-        stat(fname, &sb);
+        sres = stat(fname, &sb);
+        if(sres) { free(fname); return NULL; }
 	flen = sb.st_size;
 	if(expire && ((time(NULL) - sb.st_mtime) > expire)) {
 		fclose(kf);
@@ -50,8 +52,8 @@ char * cache_get(const char * key)
 	
 	v = malloc(flen+1);
 	if (v) {
-		fread(v, 1, flen, kf);
-		v[flen] = 0;
+		er = fread(v, 1, flen, kf);
+		v[er] = 0;
 	}
 	
 	fclose(kf);
