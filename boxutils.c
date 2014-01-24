@@ -7,9 +7,11 @@
 
 off_t filesize(const char * localpath)
 {
-	struct stat sb;					
+	struct stat sb;
+	int sres;
 
-	stat(localpath, &sb);
+	sres = stat(localpath, &sb);
+	if(sres) return 0;
 	return sb.st_size;
 }
 

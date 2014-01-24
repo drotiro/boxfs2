@@ -714,8 +714,9 @@ void api_upload(const char * path, const char * tmpfile)
 	free(res);
     }
 
-    // update used space    
+    // update used space and invalidate cache
     used_space = used_space - oldsize + fsize;
+    cache_rm(bpath->dir->id);
     
   } else {
     syslog(LOG_ERR,"Couldn't upload file %s",bpath->base);

@@ -205,7 +205,7 @@ boxdir * boxtree_add_folder(const char * path, const char * id, list * objs)
 	aDir = boxdir_create();
 	aDir->id = strdup(id);
 	
-	if(options.verbose) syslog(LOG_DEBUG, "Adding %s", path);
+	if(options.verbose) fprintf(stderr, "Scanning path %s\n", path);
 	oit = list_get_iter(objs);
 	for(; oit; oit = list_iter_next(oit)) {
         	folder = (jobj*) list_iter_getval(oit);

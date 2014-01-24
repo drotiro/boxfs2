@@ -13,7 +13,7 @@ static time_t expire = 0;
 void cache_init(const char * path, int expire_time)
 {
 	//one-time initialization
-	if(!cache_dir) {
+	if(!cache_dir && path) {
 		cache_dir = strdup(path);
 		expire = expire_time * 60;
 	}
