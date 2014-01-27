@@ -40,7 +40,7 @@ char * cache_get(const char * key)
 	if(!kf) { free(fname); return NULL; }
 
         sres = stat(fname, &sb);
-        if(sres) { free(fname); return NULL; }
+        if(sres) { fclose(kf); free(fname); return NULL; }
 	flen = sb.st_size;
 	if(expire && ((time(NULL) - sb.st_mtime) > expire)) {
 		fclose(kf);

@@ -493,9 +493,9 @@ int api_removefile(const char * path)
 
 	if(!bpath->dir) res = -ENOENT;
 	else {
-		//remove it from box.net
-		boxpath_getfile(bpath);
-		res = do_removefile_id(bpath->file->id);
+		//remove it from box.com
+		if(!boxpath_getfile(bpath)) res = -ENOENT;
+		else res = do_removefile_id(bpath->file->id);
 
 		if(res==0) {
         		used_space -= bpath->file->size;
@@ -634,7 +634,8 @@ int api_rename_v2(const char * from, const char * to)
 	        boxpath_free(bdst);
 	        return -EINVAL; 
         }
-	boxpath_getfile(bdst);
+	//no more needed
+	//boxpath_getfile(bdst);
 
 	if(bsrc->dir!=bdst->dir) {
 		res=do_api_move(bsrc, bdst);
