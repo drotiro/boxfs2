@@ -318,7 +318,7 @@ void set_filedata(const boxpath * bpath, char * res, long long fsize)
 
 void set_partdata(const boxpath * bpath, char * res, const char * partname)
 {
-	boxfile * aFile = boxfile_create(partname);
+	boxfile * aFile;
 	jobj * o = jobj_parse(res);
 
         if(!o) {
@@ -330,8 +330,9 @@ void set_partdata(const boxpath * bpath, char * res, const char * partname)
                 syslog(LOG_ERR, "Unable to parse json data for %s", bpath->base);
                 return;
         } 
-        if (o) o = jobj_array_item(o, 0); //first item
         
+        o = jobj_array_item(o, 0); //first item
+        aFile = boxfile_create(partname);
         aFile->id=jobj_getval(o, "id");
         LOCKDIR(bpath->dir);
         list_append(bpath->dir->pieces, aFile);
