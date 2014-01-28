@@ -190,7 +190,11 @@ char * post_addfile_part(postdata_t pd, const char * name,
 	FILE * tf = fopen(tmpfile, "r");
 	size_t read;
 
-	fseek(tf, offset, SEEK_SET);
+	if(!fseek(tf, offset, SEEK_SET)) {
+		syslog(LOG_WARNING, "Can't reach requested position of file %s", name);
+		fclose(tf);
+		return NULL;
+	}
 	read = fread(buf, 1, len, tf);
 	fclose(tf);
 	curl_formadd(&pd->post, &pd->last,

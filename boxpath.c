@@ -54,7 +54,7 @@ boxfile * boxfile_create(const char * base)
 
 boxpath *       boxpath_from_string(const char * path)
 {
-	char * dir = dirname(strdup(path));
+	char * odir = strdup(path), * dir = dirname(odir);
 	char * file = basename(strdup(path));
 	boxpath * bpath = (boxpath*) malloc(sizeof(boxpath));
   
@@ -63,7 +63,8 @@ boxpath *       boxpath_from_string(const char * path)
 	bpath->file = (strcmp(path,"/") ? NULL : rootDir);
 	bpath->is_dir = (xmlHashLookup(allDirs, path)!=NULL);
 
-	return bpath; 
+	free(odir);
+	return bpath;
 }
 
 void	boxpath_free(boxpath * bpath)

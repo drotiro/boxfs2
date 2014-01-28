@@ -163,6 +163,7 @@ int refresh_oauth_tokens()
 		} else {
 			char * err = jobj_getval(tokens, "error_description");
 			syslog(LOG_ERR, "Unable to get access token: %s\n", err ? err : "unknown error");
+			res = 1;
 			if(err) free(err);
 		}
 		jobj_free(tokens);
@@ -581,11 +582,14 @@ int do_api_move_id(int is_dir, const char * id, const char * dest, int is_rename
 		snprintf(fields, BUFSIZE, POST_MOVE, dest);
 	}
 
-        buf = http_put_fields(url, fields);
-        obj = jobj_parse(buf);
-        type = jobj_getval(obj, "type");
-        if(strcmp(type, is_dir ? "folder" : "file")) res = -EINVAL;
-        
+	buf = http_put_fields(url, fields);
+	obj = jobj_parse(buf);
+	type = jobj_getval(obj, "type");
+	if(!type)
+		res = -EINVAL;
+	else
+		if(strcmp(type, is_dir ? "folder" : "file")) res = -EINVAL;
+
         if(type) free(type);
         free(buf);
         jobj_free(obj);
@@ -677,15 +681,15 @@ void api_upload(const char * path, const char * tmpfile)
     }
     //upload file in parts if needed
     if(options.splitfiles && fsize > PART_LEN) {
-        post_addfile_part(buf, bpath->base, tmpfile, 0, PART_LEN);
+        pr = post_addfile_part(buf, bpath->base, tmpfile, 0, PART_LEN);
         res = http_postfile(API_UPLOAD, buf);
 
         set_filedata(bpath ,res, fsize);
-        free(res);
+        free(res); if(pr) free(pr);
 
         start = PART_LEN;
         while(start < fsize-1) {
-            post_free(buf); buf = post_init();
+	    post_free(buf); buf = post_init();
             post_add(buf, "parent_id", bpath->dir->id);
             
             partname = (char*) malloc(strlen(bpath->base)+PART_SUFFIX_LEN+4);
@@ -697,8 +701,8 @@ void api_upload(const char * path, const char * tmpfile)
             res = http_postfile(API_UPLOAD, buf);
             set_partdata(bpath, res, partname);
 
-            free(pr); free(res); free(partname);
-            start = start + len;
+            if(pr) free(pr); free(res); free(partname);
+            start += len;
         }
     } else if(fsize) {
     	//normal upload
@@ -804,8 +808,11 @@ int api_init(int* argc, char*** argv) {
 
 	if(!auth_token || !refresh_token) 
   		res = get_oauth_tokens();
-        else
+        else {
         	res = refresh_oauth_tokens();
+        	/* if refresh_token expires, redo auth */
+        	if(res) res = get_oauth_tokens();
+        }
         
   	if(auth_token) {  	        
   		char * buf;
