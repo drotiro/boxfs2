@@ -297,9 +297,15 @@ void set_filedata(const boxpath * bpath, char * res, long long fsize)
         
         if(!o) {
                 syslog(LOG_ERR, "Unable to parse file data for %s", bpath->base);
+                return;
         }
         o = jobj_get(o, "entries");
-        if (o) o = jobj_array_item(o, 0); //first item
+        if(!o || o->type != T_ARR) {
+                syslog(LOG_ERR, "Unable to parse json data for %s", bpath->base);
+                return;
+        } 
+
+        o = jobj_array_item(o, 0); //first item
         for(; it; it = list_iter_next(it)) {
                 aFile = (boxfile*)list_iter_getval(it);
                 if(!strcmp(aFile->name, bpath->base)) {
@@ -315,10 +321,15 @@ void set_partdata(const boxpath * bpath, char * res, const char * partname)
 	boxfile * aFile = boxfile_create(partname);
 	jobj * o = jobj_parse(res);
 
-	if(!o) {
-		syslog(LOG_ERR, "Unable to parse file data for %s", bpath->base);
-	}
+        if(!o) {
+                syslog(LOG_ERR, "Unable to parse file data for %s", bpath->base);
+                return;
+        }
         o = jobj_get(o, "entries");
+        if(!o || o->type != T_ARR) {
+                syslog(LOG_ERR, "Unable to parse json data for %s", bpath->base);
+                return;
+        } 
         if (o) o = jobj_array_item(o, 0); //first item
         
         aFile->id=jobj_getval(o, "id");

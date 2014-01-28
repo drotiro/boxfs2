@@ -186,7 +186,7 @@ long post_addfile(postdata_t pd, const char * name, const char * tmpfile)
 char * post_addfile_part(postdata_t pd, const char * name,
         const char * tmpfile, size_t offset, size_t len)
 {
-	char * buf = (char*) malloc(len);
+	char * buf;
 	FILE * tf = fopen(tmpfile, "r");
 	size_t read;
 
@@ -195,6 +195,7 @@ char * post_addfile_part(postdata_t pd, const char * name,
 		fclose(tf);
 		return NULL;
 	}
+	buf = (char*) malloc(len);
 	read = fread(buf, 1, len, tf);
 	fclose(tf);
 	curl_formadd(&pd->post, &pd->last,
