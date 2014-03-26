@@ -72,7 +72,7 @@ int ends_with(const char * str, const char * suff)
 }
 
 
-void api_free()
+void api_free(int argc, char **argv)
 {
 	//api_logout();
 
@@ -83,6 +83,7 @@ void api_free()
   
 	xmlCleanupParser();
 	curl_global_cleanup();
+	if(argc>2) free(argv);
 	if(allDirs) xmlHashFree(allDirs, NULL); // TODO: Deallocator!
 }
 

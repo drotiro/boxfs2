@@ -122,8 +122,6 @@ int parse_options (int* argc, char*** argv, box_options * options)
     bool res;
     FILE * cfile, * tfile;
     opt opts[] = {
-/* FUSE options are not handled at the moment, so let's disable -H */
-//		{'H', NULL, OPT_CALLBACK, &show_fuse_usage},
 	    	{'t', "token_file", OPT_STRING, &options->token_file},
 	    	{'c', "cache_dir", OPT_STRING, &options->cache_dir},
 	    	{'e', "expire_time", OPT_INT, &options->expire_time},
@@ -187,8 +185,21 @@ int parse_options (int* argc, char*** argv, box_options * options)
 			options->fperm = itomode(options->fperm);
 		if(!options->mountpoint) options->mountpoint = *argv[0];
 		args[1] = options->mountpoint;
-		*argc = 2;
-		*argv = args;
+		/* check for fuse options and build the new argv for fuse main */
+		if(*argc) {
+		        char ** fargs = malloc( (*argc + 2) * sizeof(char*) );
+		        int i;
+		        
+		        fargs[0] = args[0];
+		        for(i = 1; i < *argc; ++i) fargs[i] = (*argv)[i];
+		        fargs[*argc] = args[1];
+		        
+		        *argc+=1;
+		        *argv = fargs;
+		} else {
+        		*argc = 2;
+        		*argv = args;
+                }
 	}	
 
 	app_free(this);

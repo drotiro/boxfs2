@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
 
     if(api_init(&argc, &argv)) return 1;
     fuse_res = fuse_main(argc, argv, &box_oper, NULL);
-    api_free();
+    api_free(argc, argv);
      
     return fuse_res;   
 }

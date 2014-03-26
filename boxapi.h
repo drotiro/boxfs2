@@ -10,7 +10,7 @@
 
 #include <fuse.h>
 
-void 	api_free(); 
+void 	api_free(int argc, char **argv);
 int 	api_init(int* argc, char*** argv);
 
 int 	api_readdir(const char *, fuse_fill_dir_t, void * buf);
