@@ -105,7 +105,7 @@ void show_help()
             "verbose    = no\n"
             "token_file = /path/to/token_file\n"
             "cache_dir  = /path/to/cache/dir\n"
-            "expire_time = 1440"
+            "expire_time = 1440\n"
             "largefiles = no\n"
             "uid = 1000\n"
             "gid = 100\n"
@@ -169,7 +169,7 @@ int parse_options (int* argc, char*** argv, box_options * options)
     }
 
     /* check for mountpoint presence */
-    if(res && !options->mountpoint && !*argc) {
+    	if(res && !options->mountpoint && !*argc) {
 		res = false;
 		show_error(this, "mountpoint");
 	}
@@ -183,17 +183,25 @@ int parse_options (int* argc, char*** argv, box_options * options)
 			options->fperm = 0644;
 		else
 			options->fperm = itomode(options->fperm);
-		if(!options->mountpoint) options->mountpoint = *argv[0];
+		if(!options->mountpoint)  {
+			options->mountpoint = *argv[0];
+			if(*argc > 1) {
+				*argv+=1;
+				*argc-=1;
+			}
+		}
 		args[1] = options->mountpoint;
+
 		/* check for fuse options and build the new argv for fuse main */
 		if(*argc) {
-		        char ** fargs = malloc( (*argc + 2) * sizeof(char*) );
-		        int i;
+			char ** fargs = malloc( (*argc + 1) * sizeof(char*) );
+			int i;
 		        
-		        fargs[0] = args[0];
-		        for(i = 1; i < *argc; ++i) fargs[i] = (*argv)[i];
-		        fargs[*argc] = args[1];
-		        
+			fargs[0] = args[0]; // "boxfs"
+			fargs[1] = args[1]; // mountpoint
+
+		        for(i = 1; i < *argc; ++i) fargs[i+1] = (*argv)[i];
+
 		        *argc+=1;
 		        *argv = fargs;
 		} else {
@@ -203,5 +211,5 @@ int parse_options (int* argc, char*** argv, box_options * options)
 	}	
 
 	app_free(this);
-    return (res ? 0 : 1);
+	return (res ? 0 : 1);
 }
