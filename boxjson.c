@@ -2,13 +2,27 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef _BSD_SOURCE
+  #define GMTOFF tm_gmtoff
+#else
+  #define GMTOFF __tm_gmtoff
+#endif
 time_t unix_time(const char * timestr)
 {
-	struct tm time;
-	
-	strptime(timestr, "%FT%T%z", &time);
-	return mktime(&time);
+        struct tm time;
+        int tz_off = 0;
+        time_t res;
+
+        strptime(timestr, "%FT%T%z", &time);
+
+        tz_off = time.GMTOFF;
+        res = mktime(&time) - tz_off;
+
+        res += time.GMTOFF;
+
+        return res;
 }
+#undef GMTOFF
 
 /* predeclaration */
 jobj *  jobj_new();

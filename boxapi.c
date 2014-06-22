@@ -312,6 +312,7 @@ void set_filedata(const boxpath * bpath, char * res, long long fsize)
                 if(!strcmp(aFile->name, bpath->base)) {
                         aFile->id = jobj_getval(o, "id");
                         aFile->size = fsize;
+                        aFile->mtime = jobj_gettime(o, "modified_at");
                         return;
 		}
 	}
