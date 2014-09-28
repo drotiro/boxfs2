@@ -97,6 +97,7 @@ void save_tokens(const char * token_file)
 	if(tf) {
 		fprintf(tf, "%s\n%s\n", auth_token, refresh_token);
 		fclose(tf);
+		chmod(token_file, S_IRUSR);
 	}
 }
  
