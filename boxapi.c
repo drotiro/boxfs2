@@ -38,7 +38,7 @@
 //    AUTH
 #define API_KEY_VAL "f9ss11y2w0hg5r04jsidxlhk4pil28cf"
 #define API_SECRET  "r3ZHAIhsOL2FoHjgERI9xf74W5skIM0w"
-#define API_OAUTH_URL "https://www.box.com/api/oauth2/"
+#define API_OAUTH_URL "https://app.box.com/api/oauth2/" //"https://www.box.com/api/oauth2/"
 #define API_OAUTH_AUTHORIZE API_OAUTH_URL "authorize?response_type=code&client_id=" API_KEY_VAL /*"&redirect_uri=http%3A//localhost"*/
 #define API_OAUTH_TOKEN     API_OAUTH_URL "token"
 //    CALLS
@@ -55,6 +55,7 @@
 #define POST_MOVE       "{\"parent\": {\"id\": \"%s\"}}"
 //    UTILS
 #define BUFSIZE 1024
+#define DAY_SECS 86400
 
 #define LOCKDIR(dir) pthread_mutex_lock(dir->dirmux);
 #define UNLOCKDIR(dir) pthread_mutex_unlock(dir->dirmux); 
@@ -100,11 +101,20 @@ void save_tokens(const char * token_file)
 		chmod(token_file, S_IRUSR);
 	}
 }
+
+char * token_expire_time()
+{
+        char * res = malloc(13);
+        time_t t = time(NULL)+30*DAY_SECS;
+        snprintf(res, 12, "%lu", t);
+        return res;
+}
  
 int get_oauth_tokens()
 {
 	int res = 0;
 	char * buf = NULL, * code = NULL;
+	char * exp_time = token_expire_time();
 	jobj * tokens;
 	postdata_t postpar=post_init();
 
@@ -115,6 +125,7 @@ int get_oauth_tokens()
 	post_add(postpar, "code", code);
 	post_add(postpar, "client_id", API_KEY_VAL);
 	post_add(postpar, "client_secret", API_SECRET);
+	post_add(postpar, "box_refresh_token_expires_at", token_expire_time());
 	buf = http_post(API_OAUTH_TOKEN, postpar);
 
 	tokens = jobj_parse(buf);
@@ -138,6 +149,7 @@ int get_oauth_tokens()
 	post_free(postpar);
 	if(buf)    free(buf);
 	if(code)   free(code);
+	if(exp_time) free(exp_time);
 	return res;
 }
 
