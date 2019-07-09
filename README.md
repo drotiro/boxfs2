@@ -56,6 +56,7 @@ The first mount can be quite slow because boxfs will fetch and cache info
 	  -G --gid                    group id to use for group permissions
 	  -F --fperm                  file permissions (default 0644)
 	  -D --dperm                  directory permissions (default 0755)
+	  -o --fuse_options           specify FUSE mount options
 
 
 When you've done using your files, unmount your filsystem
