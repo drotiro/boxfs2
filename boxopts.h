@@ -22,6 +22,7 @@ typedef struct box_options_t
     int	verbose;
     int splitfiles;
     int expire_time;
+    char* fuse_options;
 } box_options;
 
 extern box_options options;

@@ -47,6 +47,7 @@ expire_time = 1440
 #gid = 1000
 fperm = 644
 dperm = 755
+#fuse_options = allow_other,default_permissions
 
 " >$BOXDIR/$CONF
 
